@@ -1,0 +1,6 @@
+{
+  "name": "Manajemen Keuangan Masjid As Shomad",
+  "description": "Aplikasi Sistem Manajemen Keuangan dan Administrasi Masjid As Shomad terpadu: Laporan Keuangan, Babul Khairat, Qurban, Infaq & Sadakah, serta Informasi & Kegiatan.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
