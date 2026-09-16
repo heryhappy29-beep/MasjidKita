@@ -1,61 +1,31 @@
-import React, { useState, useRef, useEffect } from 'react';
-import QRCode from 'qrcode';
+import React, { useState } from 'react';
 import { 
   Copy, 
   Check, 
+  Maximize2, 
+  Download, 
+  X,
   ShieldCheck
 } from 'lucide-react';
 
-export const QRIS_OFFICIAL_PAYLOAD = "00020101021126590014ID.LINKAJA.WWW01189360000900000000000215888120720900000303UMI51440014ID.CO.QRIS.WWW0215ID10253765461600303UMI5204549953033605802ID5916MASJID AS SHOMAD6005BATAM61052940062070703A0163048918";
+export const QRIS_OFFICIAL_PAYLOAD = "00020101021126590013ID.CO.BNI.WWW011893600009150407603202096023661830303UMI51440014ID.CO.QRIS.WWW0215ID10253765461600303UMI5204541153033605802ID5916MASJID AS SHOMAD6007KARIMUN61052966162070703A0163043519";
 export const QRIS_OFFICIAL_NMID = "ID1025376546160";
 
 interface OfficialQrisPlacardProps {
   className?: string;
   size?: 'normal' | 'compact' | 'large';
+  showControls?: boolean;
 }
 
 export const OfficialQrisPlacard: React.FC<OfficialQrisPlacardProps> = ({
   className = '',
-  size = 'normal'
+  size = 'normal',
+  showControls = true
 }) => {
   const [copied, setCopied] = useState(false);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [dataUrl, setDataUrl] = useState<string>('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const qrWidth = size === 'compact' ? 220 : size === 'large' ? 320 : 270;
-  const containerMaxWidth = size === 'compact' ? 'max-w-[360px]' : size === 'large' ? 'max-w-[520px]' : 'max-w-[430px]';
-
-  useEffect(() => {
-    // 1. Render directly to canvas
-    if (canvasRef.current) {
-      QRCode.toCanvas(canvasRef.current, QRIS_OFFICIAL_PAYLOAD, {
-        width: qrWidth,
-        margin: 1,
-        color: {
-          dark: '#000000',
-          light: '#FFFFFF'
-        },
-        errorCorrectionLevel: 'M'
-      }, (err) => {
-        if (err) console.error('Canvas QR error:', err);
-      });
-    }
-
-    // 2. Fallback dataURL
-    QRCode.toDataURL(QRIS_OFFICIAL_PAYLOAD, {
-      width: qrWidth,
-      margin: 1,
-      color: {
-        dark: '#000000',
-        light: '#FFFFFF'
-      },
-      errorCorrectionLevel: 'M'
-    }).then(url => {
-      setDataUrl(url);
-    }).catch(err => {
-      console.error('DataURL QR error:', err);
-    });
-  }, [qrWidth]);
+  const containerMaxWidth = size === 'compact' ? 'max-w-[320px]' : size === 'large' ? 'max-w-[500px]' : 'max-w-[420px]';
 
   const handleCopyNmid = () => {
     navigator.clipboard.writeText(QRIS_OFFICIAL_NMID);
@@ -63,152 +33,181 @@ export const OfficialQrisPlacard: React.FC<OfficialQrisPlacardProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const [imgSrcIndex, setImgSrcIndex] = useState(0);
+  const imageCandidates = [
+    '/qris-as-shomad.png',
+    '/qris-as-shomad.jpg',
+    '/qris-as-shomad.jpeg',
+    '/Qris As Shomad.png',
+    localStorage.getItem('as_shomad_official_qris_image'),
+    '/qris-as-shomad.svg'
+  ].filter(Boolean) as string[];
+
+  const currentPlacardSrc = imageCandidates[imgSrcIndex] || '/qris-as-shomad.png';
+
+  const handleImageError = () => {
+    if (imgSrcIndex < imageCandidates.length - 1) {
+      setImgSrcIndex(prev => prev + 1);
+    }
+  };
+
+  const handleDownload = () => {
+    const link = document.createElement('a');
+    link.href = currentPlacardSrc;
+    link.download = 'QRIS-Resmi-Masjid-As-Shomad.png';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className={`flex flex-col items-center ${className}`}>
-      {/* PLAKAT QRIS RESMI (100% Native Inline Render - Pasti Tampil & Tanpa Tombol Unduh) */}
+      {/* PLAKAT QRIS RESMI SESUAI POSTER ASLI */}
       <div 
         id="qris-official-placard"
-        className={`relative w-full ${containerMaxWidth} bg-white rounded-2xl shadow-xl border-2 border-slate-200 overflow-hidden select-none`}
+        className={`relative w-full ${containerMaxWidth} bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden group`}
       >
-        {/* Ornamen Geometris Merah Sisi Kiri (Sesuai Plakat Asli) */}
-        <div 
-          className="absolute left-0 top-[26%] w-0 h-0 z-0 pointer-events-none"
-          style={{
-            borderTop: '55px solid transparent',
-            borderBottom: '55px solid transparent',
-            borderLeft: '48px solid #E11D2A'
-          }}
-        />
-
-        {/* Ornamen Geometris Merah Sisi Kanan Bawah */}
-        <div 
-          className="absolute right-0 bottom-[14%] w-0 h-0 z-0 pointer-events-none"
-          style={{
-            borderTop: '45px solid transparent',
-            borderRight: '55px solid #E11D2A'
-          }}
-        />
-
         {/* Lencana Terverifikasi */}
-        <div className="absolute top-2.5 right-2.5 z-20 flex items-center gap-1 bg-emerald-700 text-white text-[9px] font-extrabold px-2 py-0.5 rounded-full shadow-xs">
-          <ShieldCheck className="w-3 h-3" />
-          <span>RESMI</span>
+        <div className="absolute top-3 right-3 z-20 flex items-center gap-1 bg-emerald-700/90 hover:bg-emerald-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md backdrop-blur-xs transition">
+          <ShieldCheck className="w-3.5 h-3.5 text-emerald-300" />
+          <span>QRIS RESMI</span>
         </div>
 
-        {/* KONTEN UTAMA PLAKAT */}
-        <div className="relative z-10 px-5 pt-5 pb-3">
-          {/* HEADER PLAKAT: LOGO QRIS & LOGO GPN */}
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            {/* Sisi Kiri: Logo QRIS Standar Pembayaran Nasional */}
-            <div className="flex items-center space-x-2">
-              <div className="bg-black text-white font-black text-xs px-1.5 py-0.5 rounded-xs tracking-tighter flex items-center justify-center">
-                <span className="font-mono text-sm leading-none">QRIS</span>
-              </div>
-              <div className="text-left leading-tight">
-                <p className="text-[9px] font-black text-black uppercase tracking-tight">QR Code Standar</p>
-                <p className="text-[9px] font-black text-black uppercase tracking-tight">Pembayaran Nasional</p>
-              </div>
-            </div>
+        {/* Gambar Plakat QRIS Asli */}
+        <div 
+          onClick={() => setIsModalOpen(true)}
+          className="cursor-pointer relative overflow-hidden bg-white flex items-center justify-center p-2 sm:p-3"
+          title="Klik untuk memperbesar tampilan QRIS"
+        >
+          <img 
+            src={currentPlacardSrc}
+            onError={handleImageError}
+            alt="Plakat QRIS Resmi Masjid As Shomad"
+            className="w-full h-auto rounded-xl object-contain shadow-xs transition-transform duration-300 group-hover:scale-[1.01]"
+            referrerPolicy="no-referrer"
+          />
 
-            {/* Sisi Kanan: Lambang GPN (Gerbang Pembayaran Nasional) */}
-            <div className="flex items-center space-x-1 pr-14">
-              <svg className="w-5 h-5" viewBox="0 0 42 32" fill="none">
-                <path d="M25 0 C32 4, 38 12, 42 22 C34 16, 26 15, 18 16 C25 20, 28 26, 30 32 C20 25, 12 25, 2 27 C10 18, 18 10, 25 0 Z" fill="#E11D2A"/>
-              </svg>
-              <span className="text-xs font-black text-[#0A2540] tracking-wider">GPN</span>
+          {/* Hover Overlay Hint */}
+          <div className="absolute inset-0 bg-slate-900/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none rounded-xl">
+            <div className="bg-white/95 text-slate-800 text-xs font-bold px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1.5">
+              <Maximize2 className="w-3.5 h-3.5 text-emerald-700" />
+              <span>Klik untuk Perbesar</span>
             </div>
           </div>
+        </div>
 
-          {/* NAMA MERCHANT & NMID */}
-          <div className="text-center my-3">
-            <h3 className="text-base sm:text-lg font-black text-black tracking-wide uppercase font-sans">
-              MASJID AS SHOMAD
-            </h3>
-            <p className="text-xs font-bold text-slate-800 tracking-wider mt-0.5">
-              NMID : {QRIS_OFFICIAL_NMID}
-            </p>
-            <p className="text-xs font-extrabold text-slate-700 tracking-widest mt-0.5">
-              A01
-            </p>
-          </div>
+        {/* BARIS SALIN NMID & AKSI */}
+        {showControls && (
+          <div className="bg-slate-50 border-t border-slate-200 px-4 py-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-500 font-medium">NMID:</span>
+              <span className="font-mono font-bold text-slate-800 tracking-wide">{QRIS_OFFICIAL_NMID}</span>
+            </div>
 
-          {/* KOTAK KODE QR (Canvas Langsung - Dijamin Selalu Tampil) */}
-          <div className="flex justify-center my-2">
-            <div className="p-2 bg-white rounded-xl shadow-inner border border-slate-200 inline-block">
-              <canvas 
-                ref={canvasRef} 
-                className="block mx-auto max-w-full h-auto rounded-lg"
-              />
-              {/* Fallback img bila canvas tertunda */}
-              {!canvasRef.current && dataUrl && (
-                <img 
-                  src={dataUrl} 
-                  alt="QRIS Masjid As Shomad" 
-                  className="block mx-auto max-w-full h-auto rounded-lg"
-                />
-              )}
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={handleCopyNmid}
+                className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-300 transition shadow-2xs"
+                title="Salin Nomor NMID"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="text-emerald-700">Tersalin</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Salin NMID</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(true)}
+                className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-300 transition shadow-2xs"
+                title="Perbesar Layar Penuh"
+              >
+                <Maximize2 className="w-3.5 h-3.5 text-slate-500" />
+                <span className="hidden sm:inline">Perbesar</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDownload}
+                className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-300 transition shadow-2xs"
+                title="Unduh Plakat QRIS"
+              >
+                <Download className="w-3.5 h-3.5 text-slate-500" />
+                <span className="hidden sm:inline">Unduh</span>
+              </button>
             </div>
           </div>
+        )}
+      </div>
 
-          {/* SLOGAN RESMI ASPI */}
-          <div className="text-center my-3">
-            <div className="inline-block bg-slate-100 px-4 py-1 rounded-md">
-              <p className="text-[11px] font-black text-slate-800 tracking-wider uppercase">
-                SATU QRIS UNTUK SEMUA
+      {/* MODAL PERBESAR QRIS UNTUK SCAN NYAMAN */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div 
+            className="relative bg-white rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-slate-200 flex flex-col items-center animate-in fade-in zoom-in duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Tombol Tutup */}
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(false)}
+              className="absolute top-4 right-4 p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
+              title="Tutup Modal"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="text-center mb-4 pr-6">
+              <h3 className="text-base sm:text-lg font-bold text-slate-900">
+                Scan QRIS Masjid As Shomad
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Buka aplikasi m-Banking / e-Wallet lalu arahkan kamera ke barcode berikut.
               </p>
             </div>
-            <p className="text-[10px] text-slate-500 mt-1">
-              Cek aplikasi penyelenggara di: <span className="font-bold text-slate-700">www.aspi-qris.id</span>
-            </p>
-          </div>
 
-          {/* FOOTER INFORMASI CETAK & CARA BAYAR */}
-          <div className="mt-4 pt-2 border-t border-slate-100 flex items-end justify-between">
-            {/* Kiri Bawah: Info Acquirer & Versi */}
-            <div className="text-left text-[9px] text-slate-500 leading-relaxed">
-              <p>Dicetak oleh : <span className="font-semibold text-slate-700">93600009</span></p>
-              <p>Versi Cetak : <span className="font-semibold text-slate-700">1.0-2025.02.10</span></p>
+            {/* Gambar Plakat Besar */}
+            <div className="max-w-md w-full bg-white rounded-2xl border border-slate-200 p-2 shadow-inner">
+              <img 
+                src={currentPlacardSrc}
+                onError={handleImageError}
+                alt="QRIS Resmi Masjid As Shomad"
+                className="w-full h-auto rounded-xl object-contain"
+                referrerPolicy="no-referrer"
+              />
             </div>
 
-            {/* Kanan Bawah: Panduan Cara Bayar Segitiga Merah */}
-            <div className="bg-[#E11D2A] text-white px-2.5 py-1.5 rounded-lg text-right shadow-xs">
-              <p className="text-[8px] font-bold tracking-tight">Cara bayar dengan QRIS:</p>
-              <div className="flex items-center gap-2 mt-0.5 text-[7.5px] font-bold text-white/95">
-                <span>1. Buka Aplikasi</span>
-                <span>•</span>
-                <span>2. Scan QR</span>
-                <span>•</span>
-                <span>3. Bayar</span>
-              </div>
+            {/* Tombol Aksi Bawah Modal */}
+            <div className="flex items-center justify-center gap-3 mt-5 w-full">
+              <button
+                type="button"
+                onClick={handleCopyNmid}
+                className="flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition"
+              >
+                {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                <span>{copied ? 'NMID Tersalin!' : 'Salin NMID'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDownload}
+                className="flex-1 py-2.5 px-4 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition shadow-xs"
+              >
+                <Download className="w-4 h-4" />
+                <span>Unduh Poster</span>
+              </button>
             </div>
           </div>
         </div>
-
-        {/* BARIS SALIN NMID (Praktis untuk Jamaah) */}
-        <div className="bg-slate-50 border-t border-slate-200 px-4 py-2.5 flex items-center justify-between text-xs">
-          <div className="flex items-center gap-1.5">
-            <span className="text-slate-500 font-medium">NMID:</span>
-            <span className="font-mono font-bold text-slate-800">{QRIS_OFFICIAL_NMID}</span>
-          </div>
-          <button
-            onClick={handleCopyNmid}
-            className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 bg-white border border-slate-300 rounded-lg text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-300 transition"
-            title="Salin Nomor NMID"
-          >
-            {copied ? (
-              <>
-                <Check className="w-3.5 h-3.5 text-emerald-600" />
-                <span className="text-emerald-700">Tersalin</span>
-              </>
-            ) : (
-              <>
-                <Copy className="w-3.5 h-3.5 text-slate-400" />
-                <span>Salin NMID</span>
-              </>
-            )}
-          </button>
-        </div>
-      </div>
+      )}
     </div>
   );
 };

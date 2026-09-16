@@ -238,24 +238,6 @@ export const QurbanView: React.FC<QurbanViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Banner Hak Akses Pengurus */}
-      {!canManage && (
-        <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl flex items-center justify-between shadow-xs">
-          <div className="flex items-center space-x-2 text-xs sm:text-sm">
-            <Lock className="w-4 h-4 text-amber-600 shrink-0" />
-            <span>
-              Anda mengakses sebagai <strong>Jama'ah / Publik (Informasi Transparan Qurban)</strong>. Untuk mendata shohibul, mengelola cicilan, dan stok hewan, silakan login sebagai <strong>Bendahara Qurban</strong> (Bpk. Herry / Bpk. Jacky) atau <strong>Super Admin</strong>.
-            </span>
-          </div>
-          <button
-            onClick={onOpenLogin}
-            className="ml-3 shrink-0 px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs shadow-xs transition"
-          >
-            Login
-          </button>
-        </div>
-      )}
-
       {/* Sub Navigation Bar */}
       <div className="flex items-center justify-between flex-wrap gap-3 border-b border-slate-200 pb-3">
         <div className="flex space-x-1.5 overflow-x-auto">

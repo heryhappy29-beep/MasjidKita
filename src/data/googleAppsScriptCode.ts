@@ -229,7 +229,7 @@ export const GOOGLE_APPS_SCRIPT_HTML = `<!DOCTYPE html>
             <h2 class="text-2xl font-bold text-slate-800 mb-2">Infaq & Sadakah Masjid As Shomad</h2>
             <div class="my-6 flex justify-center">
               <div class="p-4 bg-white border-2 border-emerald-600 rounded-xl shadow-sm inline-block">
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=00020101021126590014ID.LINKAJA.WWW01189360000900000000000215888120720900000303UMI51440014ID.CO.QRIS.WWW0215ID10253765461600303UMI5204549953033605802ID5916MASJID+AS+SHOMAD6005BATAM61052940062070703A0163048918" class="w-56 h-56 mx-auto rounded" alt="QRIS Resmi Masjid As Shomad">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=00020101021126590013ID.CO.BNI.WWW011893600009150407603202096023661830303UMI51440014ID.CO.QRIS.WWW0215ID10253765461600303UMI5204541153033605802ID5916MASJID+AS+SHOMAD6007KARIMUN61052966162070703A0163043519" class="w-56 h-56 mx-auto rounded" alt="QRIS Resmi Masjid As Shomad">
                 <p class="mt-2 text-xs font-bold text-emerald-800 tracking-wider">QRIS RESMI MASJID AS SHOMAD</p>
                 <p class="text-[10px] text-slate-500 font-mono">NMID: ID1025376546160 • A01</p>
               </div>

@@ -61,50 +61,65 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Sisi Kanan Atas: User Role, Login, Logout, Change Password */}
+        {/* Sisi Kanan Atas: Fitur Login & Logout di Posisi yang Sama Persis */}
         <div className="flex items-center flex-wrap gap-2 justify-start md:justify-end">
-          {currentUser ? (
-            <div className="flex items-center space-x-2 bg-emerald-950/60 p-1.5 rounded-xl border border-emerald-700/60">
+          {currentUser && currentUser.role !== 'public' ? (
+            <div className="flex items-center space-x-2 bg-emerald-950/60 p-1.5 rounded-xl border border-emerald-700/60 shadow-sm">
               <div className="px-2 py-0.5 text-left hidden sm:block">
                 <div className="text-xs font-bold text-emerald-100 flex items-center gap-1">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                  {currentUser.name}
+                  <span className="truncate max-w-[130px]">{currentUser.name}</span>
                 </div>
                 <div className="text-[10px] text-emerald-300 truncate max-w-[140px]">
                   {currentUser.roleLabel}
                 </div>
               </div>
 
-              {/* Menu Change Password */}
+              {/* Menu Ganti Password */}
               <button
+                id="header-change-password-button"
+                type="button"
                 onClick={onOpenChangePassword}
                 title="Ganti Password Akun"
-                className="flex items-center space-x-1 bg-emerald-800 hover:bg-emerald-700 text-emerald-100 px-2.5 py-1.5 rounded-lg text-xs font-medium transition"
+                className="flex items-center space-x-1 bg-emerald-800 hover:bg-emerald-700 text-emerald-100 px-2.5 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer"
               >
                 <KeyRound className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">Change Password</span>
+                <span className="hidden md:inline">Ganti Password</span>
               </button>
 
-              {/* Menu Logout */}
+              {/* Menu Logout di Sisi Kanan Atas */}
               <button
+                id="header-logout-button"
+                type="button"
                 onClick={onLogout}
-                title="Logout dari Sistem"
-                className="flex items-center space-x-1 bg-rose-700 hover:bg-rose-600 text-white px-2.5 py-1.5 rounded-lg text-xs font-medium transition shadow-sm"
+                title="Logout dari Sistem Pengurus"
+                className="flex items-center space-x-1.5 bg-rose-700 hover:bg-rose-600 active:bg-rose-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm cursor-pointer"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span>Logout</span>
               </button>
             </div>
           ) : (
-            <div className="flex items-center space-x-2">
-              <span className="bg-emerald-950/50 border border-emerald-700/50 text-emerald-200 text-xs px-2.5 py-1.5 rounded-lg hidden sm:inline-block">
-                Mode Jama'ah / Publik
-              </span>
+            <div className="flex items-center space-x-2 bg-emerald-950/60 p-1.5 rounded-xl border border-emerald-700/60 shadow-sm">
+              <div className="px-2 py-0.5 text-left hidden sm:block">
+                <div className="text-xs font-bold text-emerald-100 flex items-center gap-1">
+                  <Users className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Jama'ah / Tamu</span>
+                </div>
+                <div className="text-[10px] text-emerald-300 truncate max-w-[140px]">
+                  Mode Akses Transparansi
+                </div>
+              </div>
+
+              {/* Menu Login di Sisi Kanan Atas (Posisi Sama Persis dengan Logout) */}
               <button
+                id="header-login-button"
+                type="button"
                 onClick={onOpenLogin}
-                className="flex items-center space-x-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-900 font-bold px-3.5 py-1.5 rounded-lg text-xs shadow transition cursor-pointer"
+                title="Login Pengurus Masjid"
+                className="flex items-center space-x-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 active:from-amber-600 active:to-amber-700 text-slate-950 font-black px-3.5 py-1.5 rounded-lg text-xs shadow-sm transition cursor-pointer"
               >
-                <LogIn className="w-4 h-4" />
+                <LogIn className="w-3.5 h-3.5 text-slate-950" />
                 <span>Login Pengurus</span>
               </button>
             </div>
