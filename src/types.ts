@@ -97,12 +97,12 @@ export interface ShohibulQurban {
   nama: string;
   noHp: string;
   alamat: string;
-  jenisQurban: 'sapi_perorangan' | 'sapi_kolektif' | 'kambing';
+  jenisQurban: 'sapi_perorangan' | 'sapi_kolektif' | 'kambing' | 'domba';
   kelompokSapi?: number; // 1-10 jika kolektif
-  atasNama: string[]; // 1 nama jika kambing/kolektif, 7 jika perorangan sapi
+  atasNama: string[]; // 1 nama jika kambing/domba/kolektif, 7 jika perorangan sapi
   totalBiaya: number;
   terbayar: number;
-  status: 'lunas' | 'dp' | 'belum_bayar';
+  status: 'lunas' | 'belum_lunas' | 'dp' | 'belum_bayar';
   tanggalDaftar: string;
   catatan?: string;
 }

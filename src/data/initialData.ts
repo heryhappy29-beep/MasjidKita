@@ -341,6 +341,20 @@ export const INITIAL_SHOHIBUL_QURBAN: ShohibulQurban[] = [
   {
     id: 'QUR-001',
     nomorPeserta: 'Q-2025-001',
+    nama: 'Bapak Heri',
+    noHp: '085264118090',
+    alamat: 'RT 02 / RW 04 Komplek Masjid As Shomad',
+    jenisQurban: 'domba',
+    atasNama: ['Heri bin Abdullah'],
+    totalBiaya: 3500000,
+    terbayar: 1000000,
+    status: 'belum_lunas',
+    tanggalDaftar: '2025-01-15',
+    catatan: 'Qurban 1 ekor domba seharga Rp 3.500.000,-. Cicilan pertama Rp 1.000.000,-, sisa yang harus dibayar Rp 2.500.000,- (Status: Belum Lunas)'
+  },
+  {
+    id: 'QUR-002',
+    nomorPeserta: 'Q-2025-002',
     nama: 'Keluarga Bapak H. Syaripudin',
     noHp: '085264455564',
     alamat: 'RT 02 / RW 04',
@@ -350,11 +364,11 @@ export const INITIAL_SHOHIBUL_QURBAN: ShohibulQurban[] = [
     terbayar: 21000000,
     status: 'lunas',
     tanggalDaftar: '2025-01-10',
-    catatan: 'Sapi Bobot ± 320 kg (Tipe Super A)'
+    catatan: 'Sapi Bobot ± 320 kg (Tipe Super A) - Lunas'
   },
   {
-    id: 'QUR-002',
-    nomorPeserta: 'Q-2025-002',
+    id: 'QUR-003',
+    nomorPeserta: 'Q-2025-003',
     nama: 'Bapak Imron Ardan',
     noHp: '08127718440',
     alamat: 'RT 01 / RW 04',
@@ -365,11 +379,11 @@ export const INITIAL_SHOHIBUL_QURBAN: ShohibulQurban[] = [
     terbayar: 3300000,
     status: 'lunas',
     tanggalDaftar: '2025-01-12',
-    catatan: 'Kelompok Sapi 01 (Slot 1/7)'
+    catatan: 'Kelompok Sapi 01 (Slot 1/7) - Lunas'
   },
   {
-    id: 'QUR-003',
-    nomorPeserta: 'Q-2025-003',
+    id: 'QUR-004',
+    nomorPeserta: 'Q-2025-004',
     nama: 'Bapak Zul Khaidir',
     noHp: '081364498575',
     alamat: 'RT 03 / RW 04 Blok C No. 12',
@@ -378,13 +392,13 @@ export const INITIAL_SHOHIBUL_QURBAN: ShohibulQurban[] = [
     atasNama: ['Zul Khaidir bin Khaidir'],
     totalBiaya: 3300000,
     terbayar: 2000000,
-    status: 'dp',
+    status: 'belum_lunas',
     tanggalDaftar: '2025-01-15',
-    catatan: 'Kelompok Sapi 01 (Slot 2/7) - Sisa cicilan Rp 1.300.000'
+    catatan: 'Kelompok Sapi 01 (Slot 2/7) - Cicilan Rp 2.000.000, sisa Rp 1.300.000 (Belum Lunas)'
   },
   {
-    id: 'QUR-004',
-    nomorPeserta: 'Q-2025-004',
+    id: 'QUR-005',
+    nomorPeserta: 'Q-2025-005',
     nama: 'Ibu Rahmawati',
     noHp: '081987654321',
     alamat: 'RT 02 / RW 04',
@@ -394,7 +408,7 @@ export const INITIAL_SHOHIBUL_QURBAN: ShohibulQurban[] = [
     terbayar: 3500000,
     status: 'lunas',
     tanggalDaftar: '2025-01-18',
-    catatan: 'Kambing Jantan Tipe A'
+    catatan: 'Kambing Jantan Tipe A - Lunas'
   }
 ];
 
@@ -402,46 +416,63 @@ export const INITIAL_QURBAN_INSTALLMENTS: QurbanInstallment[] = [
   {
     id: 'INST-001',
     shohibulId: 'QUR-001',
-    namaPeserta: 'Keluarga Bapak H. Syaripudin',
-    tanggal: '2025-01-10',
-    nominal: 21000000,
+    namaPeserta: 'Bapak Heri',
+    tanggal: '2025-01-15',
+    nominal: 1000000,
     metode: 'transfer_bni',
     kuitansiNo: 'KWT-Q25-001',
-    catatan: 'Pelunasan 1 Ekor Sapi Mandiri'
+    catatan: 'Cicilan ke-1 Qurban 1 Ekor Domba (Total Rp 3.500.000, Sisa Rp 2.500.000, Belum Lunas)'
   },
   {
     id: 'INST-002',
     shohibulId: 'QUR-002',
-    namaPeserta: 'Bapak Imron Ardan',
-    tanggal: '2025-01-12',
-    nominal: 3300000,
-    metode: 'qris',
+    namaPeserta: 'Keluarga Bapak H. Syaripudin',
+    tanggal: '2025-01-10',
+    nominal: 21000000,
+    metode: 'transfer_bni',
     kuitansiNo: 'KWT-Q25-002',
-    catatan: 'Pelunasan 1/7 Sapi Kelompok 1'
+    catatan: 'Pelunasan 1 Ekor Sapi Mandiri'
   },
   {
     id: 'INST-003',
     shohibulId: 'QUR-003',
-    namaPeserta: 'Bapak Zul Khaidir',
-    tanggal: '2025-01-15',
-    nominal: 2000000,
-    metode: 'transfer_bni',
+    namaPeserta: 'Bapak Imron Ardan',
+    tanggal: '2025-01-12',
+    nominal: 3300000,
+    metode: 'qris',
     kuitansiNo: 'KWT-Q25-003',
-    catatan: 'Pembayaran DP Sapi Kelompok 1'
+    catatan: 'Pelunasan 1/7 Sapi Kelompok 1'
   },
   {
     id: 'INST-004',
     shohibulId: 'QUR-004',
+    namaPeserta: 'Bapak Zul Khaidir',
+    tanggal: '2025-01-15',
+    nominal: 2000000,
+    metode: 'transfer_bni',
+    kuitansiNo: 'KWT-Q25-004',
+    catatan: 'Pembayaran DP / Cicilan Sapi Kelompok 1 (Sisa Rp 1.300.000)'
+  },
+  {
+    id: 'INST-005',
+    shohibulId: 'QUR-005',
     namaPeserta: 'Ibu Rahmawati',
     tanggal: '2025-01-18',
     nominal: 3500000,
     metode: 'transfer_bni',
-    kuitansiNo: 'KWT-Q25-004',
+    kuitansiNo: 'KWT-Q25-005',
     catatan: 'Pelunasan Kambing Jantan Tipe A'
   }
 ];
 
 export const INITIAL_QURBAN_STOCK: QurbanStock[] = [
+  {
+    jenis: 'Domba / Kambing Qurban (1 Ekor)',
+    stokTersedia: 20,
+    terpesan: 2,
+    targetKebutuhan: 25,
+    hargaSatuan: 3500000
+  },
   {
     jenis: 'Sapi Kelompok (1/7 Bagian)',
     stokTersedia: 28, // 4 sapi x 7
@@ -455,13 +486,6 @@ export const INITIAL_QURBAN_STOCK: QurbanStock[] = [
     terpesan: 1,
     targetKebutuhan: 6,
     hargaSatuan: 21000000
-  },
-  {
-    jenis: 'Kambing Tipe A Super',
-    stokTersedia: 15,
-    terpesan: 1,
-    targetKebutuhan: 20,
-    hargaSatuan: 3500000
   }
 ];
 

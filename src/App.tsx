@@ -119,22 +119,30 @@ export default function App() {
 
   // 3. Data Qurban
   const [shohibulList, setShohibulList] = useState<ShohibulQurban[]>(() => {
+    const version = localStorage.getItem('as_shomad_qurban_v2');
     const saved = localStorage.getItem('as_shomad_shohibul');
-    if (saved) {
+    if (saved && version === 'true') {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       } catch (e) {}
     }
+    localStorage.setItem('as_shomad_qurban_v2', 'true');
+    localStorage.setItem('as_shomad_shohibul', JSON.stringify(INITIAL_DATA.shohibulQurban));
     return INITIAL_DATA.shohibulQurban;
   });
 
   const [installments, setInstallments] = useState<QurbanInstallment[]>(() => {
+    const version = localStorage.getItem('as_shomad_qurban_v2');
     const saved = localStorage.getItem('as_shomad_installments');
-    if (saved) {
+    if (saved && version === 'true') {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       } catch (e) {}
     }
+    localStorage.setItem('as_shomad_qurban_v2', 'true');
+    localStorage.setItem('as_shomad_installments', JSON.stringify(INITIAL_DATA.qurbanInstallments));
     return INITIAL_DATA.qurbanInstallments;
   });
 
@@ -374,6 +382,14 @@ export default function App() {
     setInstallments(installments.filter((item) => item.id !== id));
   };
 
+  const handleResetQurbanData = () => {
+    setShohibulList(INITIAL_DATA.shohibulQurban);
+    setInstallments(INITIAL_DATA.qurbanInstallments);
+    localStorage.setItem('as_shomad_shohibul', JSON.stringify(INITIAL_DATA.shohibulQurban));
+    localStorage.setItem('as_shomad_installments', JSON.stringify(INITIAL_DATA.qurbanInstallments));
+    localStorage.setItem('as_shomad_qurban_v2', 'true');
+  };
+
   // Infaq Handlers
   const handleAddInfaqRecord = (r: Omit<InfaqRecord, 'id'>) => {
     const newRec: InfaqRecord = {
@@ -491,6 +507,7 @@ export default function App() {
             stocks={qurbanStocks}
             currentUserRole={currentUser.role}
             onOpenLogin={() => setIsLoginModalOpen(true)}
+            onResetQurbanData={handleResetQurbanData}
           />
         )}
 
