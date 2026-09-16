@@ -467,25 +467,31 @@ export const INITIAL_QURBAN_INSTALLMENTS: QurbanInstallment[] = [
 
 export const INITIAL_QURBAN_STOCK: QurbanStock[] = [
   {
+    id: 'STK-001',
     jenis: 'Domba / Kambing Qurban (1 Ekor)',
     stokTersedia: 20,
     terpesan: 2,
     targetKebutuhan: 25,
-    hargaSatuan: 3500000
+    hargaSatuan: 3500000,
+    keterangan: 'Ternak domba / kambing sehat bersertifikat dokter hewan'
   },
   {
+    id: 'STK-002',
     jenis: 'Sapi Kelompok (1/7 Bagian)',
     stokTersedia: 28, // 4 sapi x 7
     terpesan: 2,
     targetKebutuhan: 35,
-    hargaSatuan: 3300000
+    hargaSatuan: 3300000,
+    keterangan: 'Slot kolektif 1/7 bagian per ekor sapi'
   },
   {
+    id: 'STK-003',
     jenis: 'Sapi Mandiri (1 Ekor)',
     stokTersedia: 5,
     terpesan: 1,
     targetKebutuhan: 6,
-    hargaSatuan: 21000000
+    hargaSatuan: 21000000,
+    keterangan: 'Sapi limousin / simmental / bali utuh 1 ekor'
   }
 ];
 

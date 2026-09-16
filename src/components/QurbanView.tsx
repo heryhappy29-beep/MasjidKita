@@ -24,7 +24,8 @@ import {
   QrCode, 
   Layers, 
   ShieldCheck,
-  RotateCcw
+  RotateCcw,
+  Plus
 } from 'lucide-react';
 
 interface QurbanViewProps {
@@ -36,6 +37,9 @@ interface QurbanViewProps {
   onAddInstallment: (inst: Omit<QurbanInstallment, 'id'>) => void;
   onDeleteInstallment: (id: string) => void;
   stocks: QurbanStock[];
+  onAddStock?: (s: Omit<QurbanStock, 'id'>) => void;
+  onEditStock?: (s: QurbanStock) => void;
+  onDeleteStock?: (id: string) => void;
   currentUserRole: UserRole;
   onOpenLogin: () => void;
   onResetQurbanData?: () => void;
@@ -58,6 +62,9 @@ export const QurbanView: React.FC<QurbanViewProps> = ({
   onAddInstallment,
   onDeleteInstallment,
   stocks,
+  onAddStock,
+  onEditStock,
+  onDeleteStock,
   currentUserRole,
   onOpenLogin,
   onResetQurbanData
@@ -66,6 +73,15 @@ export const QurbanView: React.FC<QurbanViewProps> = ({
 
   const [subTab, setSubTab] = useState<'peserta' | 'cicilan' | 'pembayaran_digital' | 'laporan'>('peserta');
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Modal Edit / Tambah Stok Hewan Qurban
+  const [isStockModalOpen, setIsStockModalOpen] = useState(false);
+  const [editingStock, setEditingStock] = useState<QurbanStock | null>(null);
+  const [stockJenis, setStockJenis] = useState('');
+  const [stockHargaSatuan, setStockHargaSatuan] = useState<number | ''>(3500000);
+  const [stockTersedia, setStockTersedia] = useState<number | ''>(20);
+  const [stockTerpesan, setStockTerpesan] = useState<number | ''>(0);
+  const [stockKeterangan, setStockKeterangan] = useState('');
 
   // Modal Pendaftaran Shohibul Baru
   const [isShohibulModalOpen, setIsShohibulModalOpen] = useState(false);
@@ -277,6 +293,66 @@ export const QurbanView: React.FC<QurbanViewProps> = ({
     rows.push(['SISA YANG HARUS DIBAYAR (PIUTANG)', qurbanSummary.sisaPiutang]);
 
     exportToCSV(`Rekapitulasi_Qurban_Masjid_As_Shomad_${new Date().toISOString().split('T')[0]}`, rows);
+  };
+
+  // Handlers untuk Manajemen Stok Hewan Qurban (Edit & Hapus)
+  const handleOpenAddStock = () => {
+    setEditingStock(null);
+    setStockJenis('');
+    setStockHargaSatuan(3500000);
+    setStockTersedia(20);
+    setStockTerpesan(0);
+    setStockKeterangan('');
+    setIsStockModalOpen(true);
+  };
+
+  const handleOpenEditStock = (stk: QurbanStock) => {
+    setEditingStock(stk);
+    setStockJenis(stk.jenis);
+    setStockHargaSatuan(stk.hargaSatuan);
+    setStockTersedia(stk.stokTersedia);
+    setStockTerpesan(stk.terpesan);
+    setStockKeterangan(stk.keterangan || '');
+    setIsStockModalOpen(true);
+  };
+
+  const handleSubmitStock = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stockJenis.trim()) {
+      alert('Mohon masukkan jenis/nama hewan qurban.');
+      return;
+    }
+    const harga = Number(stockHargaSatuan) || 0;
+    const tersedia = Number(stockTersedia) || 0;
+    const terpesan = Number(stockTerpesan) || 0;
+
+    if (editingStock && onEditStock) {
+      onEditStock({
+        ...editingStock,
+        jenis: stockJenis.trim(),
+        hargaSatuan: harga,
+        stokTersedia: tersedia,
+        terpesan: terpesan,
+        keterangan: stockKeterangan.trim()
+      });
+    } else if (onAddStock) {
+      onAddStock({
+        jenis: stockJenis.trim(),
+        hargaSatuan: harga,
+        stokTersedia: tersedia,
+        terpesan: terpesan,
+        targetKebutuhan: tersedia,
+        keterangan: stockKeterangan.trim()
+      });
+    }
+    setIsStockModalOpen(false);
+  };
+
+  const handleDeleteStockItem = (stk: QurbanStock) => {
+    if (!onDeleteStock) return;
+    if (window.confirm(`Apakah Anda yakin ingin menghapus data hewan qurban "${stk.jenis}"?`)) {
+      onDeleteStock(stk.id);
+    }
   };
 
   return (
@@ -703,50 +779,135 @@ export const QurbanView: React.FC<QurbanViewProps> = ({
       {/* 4. PANEL ADMIN & LAPORAN STOK HEWAN QURBAN */}
       {subTab === 'laporan' && (
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
-          <div className="flex items-center justify-between pb-4 border-b border-slate-200">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-slate-200 gap-3">
             <div>
-              <h3 className="text-base font-bold text-slate-900">Manajemen Stok Hewan & Rekapitulasi Qurban</h3>
-              <p className="text-xs text-slate-500">
-                Pantau kuota slot sapi kemitraan kolektif, sapi mandiri, dan stok kambing qurban Idul Adha 1446 H.
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Layers className="w-5 h-5 text-emerald-700" />
+                <span>Manajemen Stok Hewan & Rekapitulasi Qurban</span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Pantau kuota slot sapi kemitraan kolektif, sapi mandiri, dan stok kambing qurban Idul Adha 1446 H sesuai dinamika harga pasar.
               </p>
+            </div>
+            {canManage && (
+              <button
+                onClick={handleOpenAddStock}
+                className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Tambah Info Hewan</span>
+              </button>
+            )}
+          </div>
+
+          {/* Ringkasan Cepat Kuota Pasar */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-center">
+              <span className="text-[11px] font-medium text-slate-500 block">Jenis Kategori</span>
+              <strong className="text-base font-extrabold text-slate-800">{stocks.length} Macam</strong>
+            </div>
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-center">
+              <span className="text-[11px] font-medium text-slate-500 block">Total Kuota Stok</span>
+              <strong className="text-base font-extrabold text-slate-800">
+                {stocks.reduce((acc, curr) => acc + curr.stokTersedia, 0)} Slot
+              </strong>
+            </div>
+            <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-center">
+              <span className="text-[11px] font-medium text-emerald-700 block">Sudah Terpesan</span>
+              <strong className="text-base font-extrabold text-emerald-800">
+                {stocks.reduce((acc, curr) => acc + curr.terpesan, 0)} Slot
+              </strong>
+            </div>
+            <div className="p-3 bg-blue-50 rounded-xl border border-blue-200 text-center">
+              <span className="text-[11px] font-medium text-blue-700 block">Sisa Kuota Tersedia</span>
+              <strong className="text-base font-extrabold text-blue-800">
+                {stocks.reduce((acc, curr) => acc + Math.max(0, curr.stokTersedia - curr.terpesan), 0)} Slot
+              </strong>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {stocks.map((stk, idx) => (
-              <div key={idx} className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3">
-                <div className="flex justify-between items-start">
-                  <h4 className="font-extrabold text-sm text-slate-900">{stk.jenis}</h4>
-                  <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
-                    {formatRupiah(stk.hargaSatuan)}
-                  </span>
-                </div>
+          {stocks.length === 0 ? (
+            <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-300">
+              <p className="text-sm font-bold text-slate-700">Belum ada data jenis hewan qurban</p>
+              <p className="text-xs text-slate-400 mt-1">Klik tombol di atas untuk menambahkan daftar hewan qurban dan harga pasarnya.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {stocks.map((stk, idx) => {
+                const sisa = Math.max(0, stk.stokTersedia - stk.terpesan);
+                const percent = stk.stokTersedia > 0 ? Math.min(100, Math.round((stk.terpesan / stk.stokTersedia) * 100)) : 0;
+                return (
+                  <div key={stk.id || idx} className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition shadow-2xs space-y-3 flex flex-col justify-between">
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-start gap-2">
+                        <h4 className="font-extrabold text-sm text-slate-900 leading-snug">{stk.jenis}</h4>
+                        <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-lg shrink-0">
+                          {formatRupiah(stk.hargaSatuan)}
+                        </span>
+                      </div>
 
-                <div className="space-y-1.5 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Stok Tersedia:</span>
-                    <strong className="text-slate-800">{stk.stokTersedia} Ekor/Bagian</strong>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Sudah Terpesan:</span>
-                    <strong className="text-emerald-700">{stk.terpesan} Slot</strong>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Sisa Kuota:</span>
-                    <strong className="text-blue-700">{stk.stokTersedia - stk.terpesan} Slot</strong>
-                  </div>
-                </div>
+                      {stk.keterangan && (
+                        <p className="text-[11px] text-slate-500 bg-white/80 p-2 rounded-lg border border-slate-200/60 leading-relaxed">
+                          {stk.keterangan}
+                        </p>
+                      )}
 
-                {/* Progress bar stok */}
-                <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-emerald-600 rounded-full"
-                    style={{ width: `${(stk.terpesan / stk.stokTersedia) * 100}%` }}
-                  ></div>
-                </div>
-              </div>
-            ))}
-          </div>
+                      <div className="space-y-1.5 text-xs bg-white/60 p-2.5 rounded-lg border border-slate-200/50">
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Stok Tersedia:</span>
+                          <strong className="text-slate-800">{stk.stokTersedia} Ekor/Bagian</strong>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Sudah Terpesan:</span>
+                          <strong className="text-emerald-700">{stk.terpesan} Slot</strong>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Sisa Kuota Bebas:</span>
+                          <strong className="text-blue-700">{sisa} Slot</strong>
+                        </div>
+                      </div>
+
+                      {/* Progress bar stok */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[10px] text-slate-500 font-semibold">
+                          <span>Keterisian Kuota</span>
+                          <span>{percent}%</span>
+                        </div>
+                        <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-emerald-600 rounded-full transition-all duration-300"
+                            style={{ width: `${percent}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action buttons untuk Panitia */}
+                    {canManage && (
+                      <div className="pt-3 border-t border-slate-200/80 flex items-center justify-end space-x-2">
+                        <button
+                          onClick={() => handleOpenEditStock(stk)}
+                          className="px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:text-emerald-800 bg-white hover:bg-emerald-50 border border-slate-300 rounded-lg flex items-center gap-1 transition cursor-pointer"
+                          title="Edit Info & Harga Pasar"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-emerald-700" />
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteStockItem(stk)}
+                          className="px-2.5 py-1.5 text-xs font-bold text-rose-600 hover:text-rose-800 bg-white hover:bg-rose-50 border border-rose-200 rounded-lg flex items-center gap-1 transition cursor-pointer"
+                          title="Hapus Hewan Qurban"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                          <span>Hapus</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -1359,6 +1520,155 @@ export const QurbanView: React.FC<QurbanViewProps> = ({
                 <span>Cetak Kuitansi Cicilan</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL EDIT & TAMBAH INFO STOK / HARGA PASAR HEWAN QURBAN */}
+      {isStockModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden">
+            <div className="bg-emerald-800 px-6 py-4 text-white flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-base">
+                  {editingStock ? 'Edit Informasi & Harga Pasar Hewan Qurban' : 'Tambah Jenis / Info Hewan Qurban'}
+                </h3>
+                <p className="text-[11px] text-emerald-200 mt-0.5">
+                  Sesuaikan jenis hewan, kuota stok, dan harga sesuai pasar yang berlaku saat ini.
+                </p>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setIsStockModalOpen(false)} 
+                className="text-emerald-200 hover:text-white text-lg font-bold p-1 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitStock} className="p-6 space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Jenis / Kategori Hewan Qurban <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={stockJenis}
+                  onChange={(e) => setStockJenis(e.target.value)}
+                  placeholder="Contoh: Domba / Kambing Qurban (1 Ekor), Sapi Limousin Mandiri"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-600 outline-hidden font-medium"
+                />
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block font-bold text-slate-700">
+                    Harga Satuan Pasar Saat Ini (Rp) <span className="text-rose-500">*</span>
+                  </label>
+                  <span className="text-[11px] font-extrabold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
+                    {formatRupiah(Number(stockHargaSatuan) || 0)}
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  required
+                  min="0"
+                  step="50000"
+                  value={stockHargaSatuan}
+                  onChange={(e) => setStockHargaSatuan(e.target.value === '' ? '' : Number(e.target.value))}
+                  placeholder="Contoh: 3500000"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-600 outline-hidden font-mono font-bold"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Harga ini dapat disesuaikan sewaktu-waktu mengikuti fluktuasi harga pasar hewan qurban.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Kuota Stok Tersedia <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    value={stockTersedia}
+                    onChange={(e) => setStockTersedia(e.target.value === '' ? '' : Number(e.target.value))}
+                    placeholder="Contoh: 20"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-600 outline-hidden font-mono font-semibold"
+                  />
+                  <span className="text-[10px] text-slate-500 mt-0.5 block">Jumlah ekor/slot disiapkan</span>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Sudah Dipesan (Slot) <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    value={stockTerpesan}
+                    onChange={(e) => setStockTerpesan(e.target.value === '' ? '' : Number(e.target.value))}
+                    placeholder="Contoh: 2"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-600 outline-hidden font-mono font-semibold"
+                  />
+                  <span className="text-[10px] text-slate-500 mt-0.5 block">
+                    Sisa Bebas: <strong className="text-blue-700">{Math.max(0, (Number(stockTersedia) || 0) - (Number(stockTerpesan) || 0))} slot</strong>
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Keterangan / Spesifikasi Pasar (Opsional)
+                </label>
+                <textarea
+                  rows={2}
+                  value={stockKeterangan}
+                  onChange={(e) => setStockKeterangan(e.target.value)}
+                  placeholder="Contoh: Kisaran bobot hidup 30-35 kg, sehat, bersertifikat dokter hewan, bebas PMK"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-600 outline-hidden text-xs"
+                />
+              </div>
+
+              {/* Preview Mini Card */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
+                  Pratinjau Tampilan Kartu Stok
+                </span>
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-slate-800 text-xs">{stockJenis || '(Nama Jenis Hewan)'}</span>
+                  <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
+                    {formatRupiah(Number(stockHargaSatuan) || 0)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-[11px] text-slate-600">
+                  <span>Stok: <strong>{Number(stockTersedia) || 0}</strong></span>
+                  <span>Terpesan: <strong className="text-emerald-700">{Number(stockTerpesan) || 0}</strong></span>
+                  <span>Sisa Kuota: <strong className="text-blue-700">{Math.max(0, (Number(stockTersedia) || 0) - (Number(stockTerpesan) || 0))}</strong></span>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-200 flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setIsStockModalOpen(false)}
+                  className="px-4 py-2 border border-slate-300 rounded-xl font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold transition shadow-sm cursor-pointer flex items-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>{editingStock ? 'Simpan Perubahan' : 'Tambah Hewan'}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

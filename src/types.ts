@@ -119,11 +119,13 @@ export interface QurbanInstallment {
 }
 
 export interface QurbanStock {
+  id: string;
   jenis: string;
   stokTersedia: number;
   terpesan: number;
-  targetKebutuhan: number;
+  targetKebutuhan?: number;
   hargaSatuan: number;
+  keterangan?: string;
 }
 
 // 4. INFAQ & SADAKAH

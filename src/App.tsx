@@ -146,7 +146,14 @@ export default function App() {
     return INITIAL_DATA.qurbanInstallments;
   });
 
-  const [qurbanStocks] = useState<QurbanStock[]>(() => {
+  const [qurbanStocks, setQurbanStocks] = useState<QurbanStock[]>(() => {
+    const saved = localStorage.getItem('as_shomad_qurban_stocks');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
     return INITIAL_DATA.qurbanStocks;
   });
 
@@ -228,6 +235,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('as_shomad_installments', JSON.stringify(installments));
   }, [installments]);
+
+  useEffect(() => {
+    localStorage.setItem('as_shomad_qurban_stocks', JSON.stringify(qurbanStocks));
+  }, [qurbanStocks]);
 
   useEffect(() => {
     localStorage.setItem('as_shomad_infaq_records', JSON.stringify(infaqRecords));
@@ -382,11 +393,29 @@ export default function App() {
     setInstallments(installments.filter((item) => item.id !== id));
   };
 
+  const handleAddStock = (s: Omit<QurbanStock, 'id'>) => {
+    const newStock: QurbanStock = {
+      ...s,
+      id: `STK-${Date.now().toString().slice(-5)}`
+    };
+    setQurbanStocks([...qurbanStocks, newStock]);
+  };
+
+  const handleEditStock = (s: QurbanStock) => {
+    setQurbanStocks(qurbanStocks.map((item) => (item.id === s.id ? s : item)));
+  };
+
+  const handleDeleteStock = (id: string) => {
+    setQurbanStocks(qurbanStocks.filter((item) => item.id !== id));
+  };
+
   const handleResetQurbanData = () => {
     setShohibulList(INITIAL_DATA.shohibulQurban);
     setInstallments(INITIAL_DATA.qurbanInstallments);
+    setQurbanStocks(INITIAL_DATA.qurbanStocks);
     localStorage.setItem('as_shomad_shohibul', JSON.stringify(INITIAL_DATA.shohibulQurban));
     localStorage.setItem('as_shomad_installments', JSON.stringify(INITIAL_DATA.qurbanInstallments));
+    localStorage.setItem('as_shomad_qurban_stocks', JSON.stringify(INITIAL_DATA.qurbanStocks));
     localStorage.setItem('as_shomad_qurban_v2', 'true');
   };
 
@@ -505,6 +534,9 @@ export default function App() {
             onAddInstallment={handleAddInstallment}
             onDeleteInstallment={handleDeleteInstallment}
             stocks={qurbanStocks}
+            onAddStock={handleAddStock}
+            onEditStock={handleEditStock}
+            onDeleteStock={handleDeleteStock}
             currentUserRole={currentUser.role}
             onOpenLogin={() => setIsLoginModalOpen(true)}
             onResetQurbanData={handleResetQurbanData}
