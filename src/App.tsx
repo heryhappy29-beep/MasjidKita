@@ -88,7 +88,8 @@ export default function App() {
     const saved = localStorage.getItem('as_shomad_families');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       } catch (e) {}
     }
     return INITIAL_DATA.babulKhairatFamilies;
@@ -98,7 +99,8 @@ export default function App() {
     const saved = localStorage.getItem('as_shomad_babul_payments');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       } catch (e) {}
     }
     return INITIAL_DATA.babulKhairatPayments;
@@ -108,7 +110,8 @@ export default function App() {
     const saved = localStorage.getItem('as_shomad_babul_claims');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       } catch (e) {}
     }
     return INITIAL_DATA.babulKhairatClaims;
@@ -332,6 +335,16 @@ export default function App() {
     setBabulClaims(babulClaims.filter((item) => item.id !== id));
   };
 
+  const handleResetBabulData = () => {
+    setFamilies(INITIAL_DATA.babulKhairatFamilies);
+    setBabulPayments(INITIAL_DATA.babulKhairatPayments);
+    setBabulClaims(INITIAL_DATA.babulKhairatClaims);
+    localStorage.setItem('as_shomad_families', JSON.stringify(INITIAL_DATA.babulKhairatFamilies));
+    localStorage.setItem('as_shomad_babul_payments', JSON.stringify(INITIAL_DATA.babulKhairatPayments));
+    localStorage.setItem('as_shomad_babul_claims', JSON.stringify(INITIAL_DATA.babulKhairatClaims));
+    localStorage.setItem('as_shomad_babul_saldo_awal', '15000000');
+  };
+
   // Qurban Handlers
   const handleAddShohibul = (s: Omit<ShohibulQurban, 'id'>) => {
     const newShohibul: ShohibulQurban = {
@@ -460,6 +473,7 @@ export default function App() {
             onAddClaim={handleAddBabulClaim}
             onEditClaim={handleEditBabulClaim}
             onDeleteClaim={handleDeleteBabulClaim}
+            onResetBabulData={handleResetBabulData}
             currentUserRole={currentUser.role}
             onOpenLogin={() => setIsLoginModalOpen(true)}
           />

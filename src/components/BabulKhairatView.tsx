@@ -24,7 +24,11 @@ import {
   Lock,
   Phone,
   MessageCircle,
-  FileCheck
+  FileCheck,
+  RotateCcw,
+  Calculator,
+  Sliders,
+  Info
 } from 'lucide-react';
 
 interface BabulKhairatViewProps {
@@ -40,6 +44,7 @@ interface BabulKhairatViewProps {
   onAddClaim: (c: Omit<BabulKhairatClaim, 'id'>) => void;
   onEditClaim: (c: BabulKhairatClaim) => void;
   onDeleteClaim: (id: string) => void;
+  onResetBabulData?: () => void;
   currentUserRole: UserRole;
   onOpenLogin: () => void;
 }
@@ -57,6 +62,7 @@ export const BabulKhairatView: React.FC<BabulKhairatViewProps> = ({
   onAddClaim,
   onEditClaim,
   onDeleteClaim,
+  onResetBabulData,
   currentUserRole,
   onOpenLogin
 }) => {
@@ -84,9 +90,29 @@ export const BabulKhairatView: React.FC<BabulKhairatViewProps> = ({
   // Modal State: Kasir Bayar Iuran
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedFamilyId, setSelectedFamilyId] = useState<string>('');
-  const [selectedMonth, setSelectedMonth] = useState('Februari 2025');
+  const [selectedMonth, setSelectedMonth] = useState('Januari 2025');
+  const [paymentJumlahBulan, setPaymentJumlahBulan] = useState<number>(1);
   const [paymentMethod, setPaymentMethod] = useState<'tunai' | 'transfer_bni'>('tunai');
   const [paymentStatus, setPaymentStatus] = useState<'lunas' | 'menunggak'>('lunas');
+
+  // Saldo Awal Kas Rukun Kematian (dapat disesuaikan pengurus/bendahara)
+  const [saldoAwalKas, setSaldoAwalKas] = useState<number>(() => {
+    const saved = localStorage.getItem('as_shomad_babul_saldo_awal');
+    if (saved !== null) {
+      const num = Number(saved);
+      if (!isNaN(num)) return num;
+    }
+    return 15000000;
+  });
+  const [isSaldoModalOpen, setIsSaldoModalOpen] = useState(false);
+  const [saldoAwalInput, setSaldoAwalInput] = useState<number>(saldoAwalKas);
+
+  const handleSaveSaldoAwal = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaldoAwalKas(saldoAwalInput);
+    localStorage.setItem('as_shomad_babul_saldo_awal', saldoAwalInput.toString());
+    setIsSaldoModalOpen(false);
+  };
 
   // Modal State: Tambah Klaim Jenazah
   const [isClaimModalOpen, setIsClaimModalOpen] = useState(false);
@@ -103,26 +129,55 @@ export const BabulKhairatView: React.FC<BabulKhairatViewProps> = ({
   // Cetak Kwitansi Iuran
   const [receiptPayment, setReceiptPayment] = useState<BabulKhairatPayment | null>(null);
 
-  // Perhitungan Keuangan Babul Khairat
+  // Perhitungan Keuangan Babul Khairat yang Akurat & Transparan
   const financeSummary = useMemo(() => {
+    // 1. Total iuran yang berstatus lunas
     const totalPemasukanIuran = payments
       .filter((p) => p.status === 'lunas')
-      .reduce((sum, p) => sum + p.totalNominal, 0);
+      .reduce((sum, p) => sum + (Number(p.totalNominal) || 0), 0);
 
+    // 2. Total iuran yang berstatus menunggak (piutang iuran)
+    const totalTunggakanIuran = payments
+      .filter((p) => p.status === 'menunggak')
+      .reduce((sum, p) => sum + (Number(p.totalNominal) || 0), 0);
+
+    // 3. Total klaim santunan fardhu kifayah yang telah dicairkan / selesai
     const totalPengeluaranKlaim = claims
-      .reduce((sum, c) => sum + c.totalKlaim, 0);
+      .filter((c) => c.status === 'dicairkan' || c.status === 'selesai')
+      .reduce((sum, c) => sum + (Number(c.totalKlaim) || 0), 0);
 
-    const totalJiwaTerdaftar = families.reduce((sum, f) => sum + f.jumlahJiwa, 0);
-    const saldoKasBabulKhairat = 15000000 + totalPemasukanIuran - totalPengeluaranKlaim; // Saldo awal kas kas rukun kematian
+    // 4. Total klaim yang masih dalam proses
+    const totalKlaimDiproses = claims
+      .filter((c) => c.status === 'diproses')
+      .reduce((sum, c) => sum + (Number(c.totalKlaim) || 0), 0);
+
+    // 5. Total KK & Jiwa tertanggung
+    const totalKk = families.length;
+    const totalJiwaTerdaftar = families.reduce((sum, f) => sum + (Number(f.jumlahJiwa) || 0), 0);
+
+    // 6. Potensi penerimaan iuran bulanan
+    const potensiIuranBulanan = totalJiwaTerdaftar * tarifPerJiwa;
+
+    // 7. Saldo Kas Siaga Real-Time: Saldo Awal + Total Iuran Lunas - Total Santunan Dicairkan
+    const saldoKasBabulKhairat = saldoAwalKas + totalPemasukanIuran - totalPengeluaranKlaim;
+
+    const jumlahLunas = payments.filter((p) => p.status === 'lunas').length;
+    const jumlahMenunggak = payments.filter((p) => p.status === 'menunggak').length;
 
     return {
+      saldoAwalKas,
       totalPemasukanIuran,
+      totalTunggakanIuran,
       totalPengeluaranKlaim,
+      totalKlaimDiproses,
       totalJiwaTerdaftar,
+      potensiIuranBulanan,
       saldoKasBabulKhairat,
-      totalKk: families.length
+      totalKk,
+      jumlahLunas,
+      jumlahMenunggak
     };
-  }, [payments, claims, families]);
+  }, [payments, claims, families, tarifPerJiwa, saldoAwalKas]);
 
   // Handle Tambah/Edit KK
   const handleAnggotaChange = (val: string) => {
@@ -192,15 +247,16 @@ export const BabulKhairatView: React.FC<BabulKhairatViewProps> = ({
   // Handle Simpan Bayar Iuran
   const handleSubmitPayment = (e: React.FormEvent) => {
     e.preventDefault();
-    const fam = families.find((f) => f.id === selectedFamilyId);
+    const fam = families.find((f) => f.id === selectedFamilyId) || families[0];
     if (!fam) return;
 
-    const totalNominal = fam.jumlahJiwa * tarifPerJiwa;
+    const bulanCount = Math.max(1, Number(paymentJumlahBulan) || 1);
+    const totalNominal = fam.jumlahJiwa * tarifPerJiwa * bulanCount;
 
     onAddPayment({
       familyId: fam.id,
       namaKk: fam.namaKepalaKeluarga,
-      bulan: selectedMonth,
+      bulan: bulanCount > 1 ? `${selectedMonth} (${bulanCount} Bulan)` : selectedMonth,
       tahun: 2025,
       nominalPerJiwa: tarifPerJiwa,
       jumlahJiwa: fam.jumlahJiwa,
@@ -317,7 +373,7 @@ export const BabulKhairatView: React.FC<BabulKhairatViewProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 flex-wrap gap-y-2">
           {canManage && (
             <div className="flex items-center space-x-2 bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-200 text-xs">
               <span className="text-emerald-800 font-semibold">Tarif/Orang:</span>
@@ -329,6 +385,36 @@ export const BabulKhairatView: React.FC<BabulKhairatViewProps> = ({
               />
             </div>
           )}
+
+          {canManage && (
+            <button
+              onClick={() => {
+                setSaldoAwalInput(saldoAwalKas);
+                setIsSaldoModalOpen(true);
+              }}
+              className="flex items-center space-x-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold border border-slate-300 transition shadow-2xs"
+              title="Atur Saldo Awal Kas Rukun Kematian"
+            >
+              <Sliders className="w-3.5 h-3.5 text-slate-600" />
+              <span>Atur Saldo Awal</span>
+            </button>
+          )}
+
+          {canManage && onResetBabulData && (
+            <button
+              onClick={() => {
+                if (window.confirm('Muat ulang data standar Babul Khairat (5 KK, riwayat iuran & klaim resmi)? Data akan dipulihkan ke master data.')) {
+                  onResetBabulData();
+                }
+              }}
+              className="flex items-center space-x-1 px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-bold border border-blue-200 transition shadow-2xs"
+              title="Pulihkan data standar 5 KK dan transaksi Babul Khairat"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Muat Data Standar</span>
+            </button>
+          )}
+
           {canManage && subTab === 'keanggotaan' && (
             <button
               onClick={handleOpenAddFamily}
@@ -367,13 +453,54 @@ export const BabulKhairatView: React.FC<BabulKhairatViewProps> = ({
       {/* 1. DASBOR LAPORAN TRANSPARAN KAS BABUL KHAIRAT (UNTUK WARGA & PENGURUS) */}
       {subTab === 'transparansi' && (
         <div className="space-y-6">
+          {/* Peringatan jika data KK kosong */}
+          {families.length === 0 && (
+            <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+              <div className="flex items-center space-x-3">
+                <AlertCircle className="w-6 h-6 text-amber-600 shrink-0" />
+                <div>
+                  <h4 className="font-bold text-amber-900 text-sm">Data Keanggotaan Babul Khairat Masih Kosong</h4>
+                  <p className="text-xs text-amber-700">
+                    Browser belum memuat daftar KK warga. Klik tombol di samping untuk memuat kembali 5 KK contoh dan riwayat transaksi resmi.
+                  </p>
+                </div>
+              </div>
+              {onResetBabulData && (
+                <button
+                  onClick={onResetBabulData}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs flex items-center space-x-1.5 shrink-0 shadow-xs"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  <span>Muat Data Standar</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* 4 Kartu Metrik Utama */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Saldo Kas Babul Khairat</span>
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs relative">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Saldo Kas Siaga Babul Khairat</span>
+                {canManage && (
+                  <button
+                    onClick={() => {
+                      setSaldoAwalInput(saldoAwalKas);
+                      setIsSaldoModalOpen(true);
+                    }}
+                    className="text-[11px] text-emerald-700 hover:underline font-semibold flex items-center gap-0.5"
+                    title="Ubah Saldo Awal"
+                  >
+                    <Edit3 className="w-3 h-3" /> Edit
+                  </button>
+                )}
+              </div>
               <div className="text-2xl font-extrabold text-emerald-700 mt-2">
                 {formatRupiah(financeSummary.saldoKasBabulKhairat)}
               </div>
-              <p className="text-xs text-slate-500 mt-1">Siap disalurkan untuk santunan duka</p>
+              <p className="text-xs text-slate-500 mt-1">
+                Saldo Awal {formatRupiah(financeSummary.saldoAwalKas)} + Masuk {formatRupiah(financeSummary.totalPemasukanIuran)} - Keluar {formatRupiah(financeSummary.totalPengeluaranKlaim)}
+              </p>
             </div>
 
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
@@ -381,15 +508,19 @@ export const BabulKhairatView: React.FC<BabulKhairatViewProps> = ({
               <div className="text-2xl font-extrabold text-slate-900 mt-2">
                 {financeSummary.totalKk} KK / {financeSummary.totalJiwaTerdaftar} Jiwa
               </div>
-              <p className="text-xs text-slate-500 mt-1">Tarif iuran: {formatRupiah(tarifPerJiwa)}/orang/bln</p>
+              <p className="text-xs text-slate-500 mt-1">
+                Potensi iuran: {formatRupiah(financeSummary.potensiIuranBulanan)}/bulan (@{formatRupiah(tarifPerJiwa)}/jiwa)
+              </p>
             </div>
 
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Pemasukan Iuran Periode Ini</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Pemasukan Iuran Terbayar</span>
               <div className="text-2xl font-extrabold text-emerald-800 mt-2">
                 {formatRupiah(financeSummary.totalPemasukanIuran)}
               </div>
-              <p className="text-xs text-emerald-600 mt-1">Dari iuran warga yang telah lunas</p>
+              <p className="text-xs text-emerald-600 mt-1">
+                {financeSummary.jumlahLunas} transaksi lunas • {formatRupiah(financeSummary.totalTunggakanIuran)} menunggak ({financeSummary.jumlahMenunggak} KK)
+              </p>
             </div>
 
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
@@ -397,7 +528,70 @@ export const BabulKhairatView: React.FC<BabulKhairatViewProps> = ({
               <div className="text-2xl font-extrabold text-rose-700 mt-2">
                 {formatRupiah(financeSummary.totalPengeluaranKlaim)}
               </div>
-              <p className="text-xs text-rose-600 mt-1">Ambulans, kafan, makam & santunan</p>
+              <p className="text-xs text-rose-600 mt-1">
+                {claims.length} santunan fardhu kifayah telah disalurkan
+              </p>
+            </div>
+          </div>
+
+          {/* Kotak Transparansi Alur Perhitungan Matematika Kas Babul Khairat */}
+          <div className="bg-slate-900 text-white p-6 rounded-2xl border border-slate-800 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+              <div className="flex items-center space-x-2">
+                <Calculator className="w-5 h-5 text-emerald-400" />
+                <h3 className="text-sm font-bold tracking-wide uppercase">
+                  Audit & Rekapitulasi Alur Perhitungan Kas Rukun Kematian
+                </h3>
+              </div>
+              <span className="text-xs font-semibold text-slate-400">
+                Formula Real-Time Kas Babul Khairat
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+              <div className="bg-slate-800/80 p-3.5 rounded-xl border border-slate-700/60">
+                <span className="text-slate-400 block mb-1">1. Saldo Awal Kas:</span>
+                <span className="text-base font-extrabold text-slate-100 block">
+                  {formatRupiah(financeSummary.saldoAwalKas)}
+                </span>
+                <span className="text-[11px] text-slate-400">Dana modal awal rukun kematian</span>
+              </div>
+
+              <div className="bg-slate-800/80 p-3.5 rounded-xl border border-slate-700/60">
+                <span className="text-emerald-400 block mb-1 font-semibold">(+) 2. Iuran Warga Lunas:</span>
+                <span className="text-base font-extrabold text-emerald-400 block">
+                  +{formatRupiah(financeSummary.totalPemasukanIuran)}
+                </span>
+                <span className="text-[11px] text-slate-400">{financeSummary.jumlahLunas} KK telah melunasi iuran</span>
+              </div>
+
+              <div className="bg-slate-800/80 p-3.5 rounded-xl border border-slate-700/60">
+                <span className="text-rose-400 block mb-1 font-semibold">(-) 3. Santunan & Pemakaman:</span>
+                <span className="text-base font-extrabold text-rose-400 block">
+                  -{formatRupiah(financeSummary.totalPengeluaranKlaim)}
+                </span>
+                <span className="text-[11px] text-slate-400">Ambulans, kafan, makam & santunan</span>
+              </div>
+
+              <div className="bg-emerald-950/60 p-3.5 rounded-xl border border-emerald-600/50">
+                <span className="text-emerald-300 block mb-1 font-bold">(=) 4. Saldo Kas Siaga:</span>
+                <span className="text-lg font-black text-emerald-300 block">
+                  {formatRupiah(financeSummary.saldoKasBabulKhairat)}
+                </span>
+                <span className="text-[11px] text-emerald-200/80">Saldo kas siap pakai saat duka</span>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 text-xs border-t border-slate-800 text-slate-300">
+              <div className="flex items-center space-x-2">
+                <Info className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>
+                  Tunggakan Iuran Belum Masuk: <strong className="text-amber-400">{formatRupiah(financeSummary.totalTunggakanIuran)}</strong> ({financeSummary.jumlahMenunggak} KK)
+                </span>
+              </div>
+              <div>
+                Target Potensi Iuran Bulanan: <strong className="text-white">{formatRupiah(financeSummary.potensiIuranBulanan)}</strong>
+              </div>
             </div>
           </div>
 
@@ -575,7 +769,7 @@ export const BabulKhairatView: React.FC<BabulKhairatViewProps> = ({
                 {payments.map((p) => (
                   <tr key={p.id} className="hover:bg-slate-50/80 transition">
                     <td className="px-4 py-3 font-bold text-slate-900">{p.namaKk}</td>
-                    <td className="px-4 py-3">{p.bulan} {p.tahun}</td>
+                    <td className="px-4 py-3">{p.bulan.includes(String(p.tahun)) ? p.bulan : `${p.bulan} ${p.tahun}`}</td>
                     <td className="px-4 py-3 text-center">{p.jumlahJiwa} Orang</td>
                     <td className="px-4 py-3 text-right font-extrabold text-emerald-800">
                       {formatRupiah(p.totalNominal)}
@@ -594,7 +788,7 @@ export const BabulKhairatView: React.FC<BabulKhairatViewProps> = ({
                     </td>
                     <td className="px-4 py-3 text-center whitespace-nowrap">
                       <div className="flex items-center justify-center space-x-1.5">
-                        {p.status === 'lunas' && (
+                        {p.status === 'lunas' ? (
                           <button
                             onClick={() => setReceiptPayment(p)}
                             className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-bold flex items-center gap-1 border border-slate-300"
@@ -603,6 +797,23 @@ export const BabulKhairatView: React.FC<BabulKhairatViewProps> = ({
                             <Printer className="w-3 h-3 text-blue-700" />
                             <span>Kwitansi</span>
                           </button>
+                        ) : (
+                          canManage && (
+                            <button
+                              onClick={() => {
+                                onEditPayment({
+                                  ...p,
+                                  status: 'lunas',
+                                  tanggalBayar: new Date().toISOString().split('T')[0]
+                                });
+                              }}
+                              className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-bold flex items-center gap-1 shadow-2xs"
+                              title="Tandai pembayaran telah lunas"
+                            >
+                              <CheckCircle2 className="w-3 h-3" />
+                              <span>Tandai Lunas</span>
+                            </button>
+                          )
                         )}
                         {canManage && (
                           <button
@@ -937,78 +1148,156 @@ export const BabulKhairatView: React.FC<BabulKhairatViewProps> = ({
               <button onClick={() => setIsPaymentModalOpen(false)} className="text-emerald-200 hover:text-white">✕</button>
             </div>
 
-            <form onSubmit={handleSubmitPayment} className="p-6 space-y-4 text-xs">
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Pilih Kepala Keluarga</label>
-                <select
-                  value={selectedFamilyId}
-                  onChange={(e) => setSelectedFamilyId(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none font-bold"
-                >
-                  {families.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.namaKepalaKeluarga} ({f.jumlahJiwa} Jiwa - {formatRupiah(f.jumlahJiwa * tarifPerJiwa)})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Bulan Iuran</label>
-                <select
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none"
-                >
-                  <option value="Januari 2025">Januari 2025</option>
-                  <option value="Februari 2025">Februari 2025</option>
-                  <option value="Maret 2025">Maret 2025</option>
-                  <option value="April 2025">April 2025</option>
-                  <option value="Mei 2025">Mei 2025</option>
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Metode</label>
-                  <select
-                    value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value as any)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none"
+            {families.length === 0 ? (
+              <div className="p-6 text-center space-y-4">
+                <AlertCircle className="w-10 h-10 text-amber-500 mx-auto" />
+                <p className="text-xs text-slate-600">
+                  Belum ada data Kepala Keluarga yang terdaftar. Daftarkan KK terlebih dahulu atau pulihkan data standar.
+                </p>
+                <div className="flex justify-center gap-2">
+                  {onResetBabulData && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onResetBabulData();
+                        setIsPaymentModalOpen(false);
+                      }}
+                      className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold"
+                    >
+                      Muat Data Standar
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsPaymentModalOpen(false);
+                      handleOpenAddFamily();
+                    }}
+                    className="px-3 py-1.5 bg-emerald-700 text-white rounded-lg text-xs font-bold"
                   >
-                    <option value="tunai">Tunai</option>
-                    <option value="transfer_bni">Transfer BNI</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Status Bayar</label>
-                  <select
-                    value={paymentStatus}
-                    onChange={(e) => setPaymentStatus(e.target.value as any)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none font-bold text-emerald-800"
-                  >
-                    <option value="lunas">Lunas</option>
-                    <option value="menunggak">Menunggak</option>
-                  </select>
+                    Daftar KK Baru
+                  </button>
                 </div>
               </div>
+            ) : (
+              <form onSubmit={handleSubmitPayment} className="p-6 space-y-4 text-xs">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Pilih Kepala Keluarga</label>
+                  <select
+                    value={selectedFamilyId || (families[0] ? families[0].id : '')}
+                    onChange={(e) => setSelectedFamilyId(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none font-bold"
+                  >
+                    {families.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.namaKepalaKeluarga} ({f.jumlahJiwa} Jiwa - @{formatRupiah(tarifPerJiwa)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              <div className="pt-3 flex justify-end space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setIsPaymentModalOpen(false)}
-                  className="px-4 py-2 border border-slate-300 rounded-xl font-bold text-slate-600"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold shadow-md"
-                >
-                  Simpan Pembayaran
-                </button>
-              </div>
-            </form>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Bulan Mulai</label>
+                    <select
+                      value={selectedMonth}
+                      onChange={(e) => setSelectedMonth(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none"
+                    >
+                      <option value="Januari 2025">Januari 2025</option>
+                      <option value="Februari 2025">Februari 2025</option>
+                      <option value="Maret 2025">Maret 2025</option>
+                      <option value="April 2025">April 2025</option>
+                      <option value="Mei 2025">Mei 2025</option>
+                      <option value="Juni 2025">Juni 2025</option>
+                      <option value="Juli 2025">Juli 2025</option>
+                      <option value="Agustus 2025">Agustus 2025</option>
+                      <option value="September 2025">September 2025</option>
+                      <option value="Oktober 2025">Oktober 2025</option>
+                      <option value="November 2025">November 2025</option>
+                      <option value="Desember 2025">Desember 2025</option>
+                      <option value="Januari 2026">Januari 2026</option>
+                      <option value="Februari 2026">Februari 2026</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Durasi Bayar</label>
+                    <select
+                      value={paymentJumlahBulan}
+                      onChange={(e) => setPaymentJumlahBulan(Number(e.target.value))}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none font-bold"
+                    >
+                      <option value={1}>1 Bulan</option>
+                      <option value={2}>2 Bulan</option>
+                      <option value={3}>3 Bulan (Triwulan)</option>
+                      <option value={6}>6 Bulan (Semester)</option>
+                      <option value={12}>12 Bulan (1 Tahun)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Metode Bayar</label>
+                    <select
+                      value={paymentMethod}
+                      onChange={(e) => setPaymentMethod(e.target.value as any)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none"
+                    >
+                      <option value="tunai">Tunai</option>
+                      <option value="transfer_bni">Transfer BNI</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Status Bayar</label>
+                    <select
+                      value={paymentStatus}
+                      onChange={(e) => setPaymentStatus(e.target.value as any)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none font-bold text-emerald-800"
+                    >
+                      <option value="lunas">Lunas (Diterima)</option>
+                      <option value="menunggak">Menunggak (Piutang)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Perhitungan Tagihan Otomatis */}
+                {(() => {
+                  const currentFam = families.find((f) => f.id === selectedFamilyId) || families[0];
+                  const jiwa = currentFam ? currentFam.jumlahJiwa : 0;
+                  const total = jiwa * tarifPerJiwa * paymentJumlahBulan;
+                  return (
+                    <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1">
+                      <div className="flex justify-between text-slate-600">
+                        <span>Perhitungan:</span>
+                        <span>{jiwa} Jiwa × {formatRupiah(tarifPerJiwa)} × {paymentJumlahBulan} Bulan</span>
+                      </div>
+                      <div className="flex justify-between items-center pt-1 border-t border-emerald-200">
+                        <span className="font-bold text-emerald-950 text-xs">Total Iuran:</span>
+                        <span className="font-black text-emerald-800 text-base">{formatRupiah(total)}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <div className="pt-2 flex justify-end space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsPaymentModalOpen(false)}
+                    className="px-4 py-2 border border-slate-300 rounded-xl font-bold text-slate-600"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold shadow-md"
+                  >
+                    Simpan Pembayaran
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
@@ -1226,6 +1515,87 @@ export const BabulKhairatView: React.FC<BabulKhairatViewProps> = ({
                 <span>Cetak Kwitansi</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PENGATURAN SALDO AWAL KAS BABUL KHAIRAT */}
+      {isSaldoModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 overflow-hidden">
+            <div className="bg-slate-900 px-6 py-4 text-white flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Sliders className="w-5 h-5 text-emerald-400" />
+                <h3 className="font-bold text-sm">Pengaturan Saldo Awal Kas</h3>
+              </div>
+              <button onClick={() => setIsSaldoModalOpen(false)} className="text-slate-400 hover:text-white">✕</button>
+            </div>
+
+            <form onSubmit={handleSaveSaldoAwal} className="p-6 space-y-4 text-xs">
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-emerald-800">
+                <p className="text-[11px] leading-relaxed">
+                  <strong>Saldo Awal Kas</strong> adalah modal awal kas rukun kematian (Babul Khairat) sebelum ditambah iuran warga dan dikurangi klaim santunan duka.
+                </p>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Nominal Saldo Awal (Rp)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="50000"
+                  value={saldoAwalInput}
+                  onChange={(e) => setSaldoAwalInput(Number(e.target.value) || 0)}
+                  className="w-full px-3 py-2 text-base font-extrabold text-emerald-900 bg-white border border-slate-300 rounded-xl outline-none"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Terbaca: <strong className="text-slate-700">{formatRupiah(saldoAwalInput)}</strong>
+                </p>
+              </div>
+
+              <div>
+                <span className="block font-semibold text-slate-600 mb-1.5 text-[11px]">Pilihan Cepat (Preset):</span>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSaldoAwalInput(10000000)}
+                    className="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-[11px] font-bold text-slate-700 border border-slate-200"
+                  >
+                    10 Juta
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSaldoAwalInput(15000000)}
+                    className="px-2 py-1.5 bg-emerald-100 hover:bg-emerald-200 rounded-lg text-[11px] font-bold text-emerald-900 border border-emerald-300"
+                  >
+                    15 Juta (Default)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSaldoAwalInput(20000000)}
+                    className="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-[11px] font-bold text-slate-700 border border-slate-200"
+                  >
+                    20 Juta
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-3 flex justify-end space-x-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsSaldoModalOpen(false)}
+                  className="px-4 py-2 border border-slate-300 rounded-xl font-bold text-slate-600"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold shadow-md"
+                >
+                  Simpan Saldo Awal
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
