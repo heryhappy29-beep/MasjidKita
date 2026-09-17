@@ -10,7 +10,8 @@ import {
   Users, 
   Coins, 
   HeartHandshake, 
-  CalendarDays 
+  CalendarDays,
+  FileSpreadsheet
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -20,6 +21,7 @@ interface HeaderProps {
   onOpenLogin: () => void;
   onOpenChangePassword: () => void;
   onOpenGasGuide?: () => void;
+  onOpenGoogleSheets?: () => void;
   onLogout: () => void;
 }
 
@@ -30,6 +32,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenLogin,
   onOpenChangePassword,
   onOpenGasGuide,
+  onOpenGoogleSheets,
   onLogout
 }) => {
   const navItems: { id: MainTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -61,8 +64,22 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Sisi Kanan Atas: Fitur Login & Logout di Posisi yang Sama Persis */}
+        {/* Sisi Kanan Atas: Google Sheets & Fitur Login & Logout */}
         <div className="flex items-center flex-wrap gap-2 justify-start md:justify-end">
+          {/* Tombol Integrasi Google Sheets */}
+          {onOpenGoogleSheets && (
+            <button
+              id="header-google-sheets-button"
+              type="button"
+              onClick={onOpenGoogleSheets}
+              title="Integrasi & Sinkronisasi Google Sheets"
+              className="flex items-center space-x-1.5 bg-emerald-800/90 hover:bg-emerald-700 active:bg-emerald-850 text-emerald-100 border border-emerald-600/70 hover:border-emerald-400 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-emerald-300" />
+              <span>Google Sheets</span>
+            </button>
+          )}
+
           {currentUser && currentUser.role !== 'public' ? (
             <div className="flex items-center space-x-2 bg-emerald-950/60 p-1.5 rounded-xl border border-emerald-700/60 shadow-sm">
               <div className="px-2 py-0.5 text-left hidden sm:block">

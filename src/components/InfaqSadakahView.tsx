@@ -14,12 +14,14 @@ import {
   CheckCircle2, 
   Building,
   Lock,
+  Edit3,
   Trash2
 } from 'lucide-react';
 
 interface InfaqSadakahViewProps {
   records: InfaqRecord[];
   onAddRecord: (r: Omit<InfaqRecord, 'id'>) => void;
+  onEditRecord?: (r: InfaqRecord) => void;
   onDeleteRecord: (id: string) => void;
   currentUserRole: UserRole;
 }
@@ -27,6 +29,7 @@ interface InfaqSadakahViewProps {
 export const InfaqSadakahView: React.FC<InfaqSadakahViewProps> = ({
   records,
   onAddRecord,
+  onEditRecord,
   onDeleteRecord,
   currentUserRole
 }) => {
@@ -40,6 +43,45 @@ export const InfaqSadakahView: React.FC<InfaqSadakahViewProps> = ({
   const [metodeInfaq, setMetodeInfaq] = useState<'QRIS' | 'Transfer BNI' | 'Tunai'>('Transfer BNI');
   const [keteranganDonasi, setKeteranganDonasi] = useState('');
   const [isCopied, setIsCopied] = useState(false);
+
+  // State Modal Edit Donasi
+  const [editingRecord, setEditingRecord] = useState<InfaqRecord | null>(null);
+  const [editNama, setEditNama] = useState('');
+  const [editNoHp, setEditNoHp] = useState('');
+  const [editNominal, setEditNominal] = useState<number | ''>('');
+  const [editJenis, setEditJenis] = useState<InfaqRecord['jenis']>('Infaq Jumat');
+  const [editMetode, setEditMetode] = useState<InfaqRecord['metode']>('Transfer BNI');
+  const [editTanggal, setEditTanggal] = useState('');
+  const [editKeterangan, setEditKeterangan] = useState('');
+
+  const handleOpenEditRecord = (rec: InfaqRecord) => {
+    setEditingRecord(rec);
+    setEditNama(rec.nama);
+    setEditNoHp(rec.noHp || '');
+    setEditNominal(rec.nominal);
+    setEditJenis(rec.jenis);
+    setEditMetode(rec.metode);
+    setEditTanggal(rec.tanggal);
+    setEditKeterangan(rec.keterangan || '');
+  };
+
+  const handleSaveEditRecord = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRecord || !onEditRecord || !editNominal || Number(editNominal) <= 0) return;
+
+    onEditRecord({
+      ...editingRecord,
+      nama: editNama || 'Hamba Allah',
+      noHp: editNoHp || '-',
+      nominal: Number(editNominal),
+      jenis: editJenis,
+      metode: editMetode,
+      tanggal: editTanggal || editingRecord.tanggal,
+      keterangan: editKeterangan
+    });
+
+    setEditingRecord(null);
+  };
 
   // Nomor rekening & WA Bendahara Masjid (Bpk. Imron Ardan)
   const NOMOR_REKENING_BNI = '8881-2072-09';
@@ -333,18 +375,27 @@ export const InfaqSadakahView: React.FC<InfaqSadakahViewProps> = ({
                   <td className="px-4 py-3 uppercase text-[10px] font-bold text-slate-600">{rec.metode}</td>
                   <td className="px-4 py-3 text-slate-500 italic max-w-xs truncate">{rec.keterangan || '-'}</td>
                   {canManage && (
-                    <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={() => {
-                          if (window.confirm(`Hapus catatan donasi dari ${rec.nama}?`)) {
-                            onDeleteRecord(rec.id);
-                          }
-                        }}
-                        className="p-1 text-rose-600 hover:bg-rose-50 rounded"
-                        title="Hapus"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                      <div className="flex items-center justify-center space-x-1.5">
+                        <button
+                          onClick={() => handleOpenEditRecord(rec)}
+                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                          title="Edit Catatan Infaq"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Hapus catatan donasi dari ${rec.nama}?`)) {
+                              onDeleteRecord(rec.id);
+                            }
+                          }}
+                          className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                          title="Hapus Catatan Infaq"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </td>
                   )}
                 </tr>
@@ -353,6 +404,144 @@ export const InfaqSadakahView: React.FC<InfaqSadakahViewProps> = ({
           </table>
         </div>
       </div>
+
+      {/* MODAL EDIT DATA INFAQ & SEDEKAH */}
+      {editingRecord && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95">
+            <div className="bg-emerald-800 text-white px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Edit3 className="w-5 h-5 text-emerald-300" />
+                <h3 className="font-bold text-base">Edit Catatan Infaq & Sedekah</h3>
+              </div>
+              <button
+                onClick={() => setEditingRecord(null)}
+                className="text-emerald-200 hover:text-white text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditRecord} className="p-6 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Nama Donatur *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editNama}
+                    onChange={(e) => setEditNama(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    No. WhatsApp / HP
+                  </label>
+                  <input
+                    type="text"
+                    value={editNoHp}
+                    onChange={(e) => setEditNoHp(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Nominal (Rp) *
+                  </label>
+                  <input
+                    type="number"
+                    min="1000"
+                    required
+                    value={editNominal}
+                    onChange={(e) => setEditNominal(e.target.value ? Number(e.target.value) : '')}
+                    className="w-full px-3 py-2 text-xs font-bold text-emerald-800 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Tanggal Transaksi *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editTanggal}
+                    onChange={(e) => setEditTanggal(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Alokasi / Peruntukan *
+                  </label>
+                  <select
+                    value={editJenis}
+                    onChange={(e) => setEditJenis(e.target.value as any)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                  >
+                    <option value="Infaq Jumat">Infaq Jumat</option>
+                    <option value="Sedekah Subuh">Sedekah Subuh</option>
+                    <option value="Renovasi Masjid">Renovasi Masjid</option>
+                    <option value="Operasional">Operasional</option>
+                    <option value="Yatim & Dhuafa">Yatim & Dhuafa</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Metode Pembayaran *
+                  </label>
+                  <select
+                    value={editMetode}
+                    onChange={(e) => setEditMetode(e.target.value as any)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                  >
+                    <option value="Transfer BNI">Transfer BNI</option>
+                    <option value="QRIS">QRIS</option>
+                    <option value="Tunai">Tunai</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Catatan / Keterangan
+                </label>
+                <input
+                  type="text"
+                  value={editKeterangan}
+                  onChange={(e) => setEditKeterangan(e.target.value)}
+                  placeholder="Contoh: Titipan doa keluarga"
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setEditingRecord(null)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded-xl shadow-xs transition"
+                >
+                  Simpan Perubahan
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

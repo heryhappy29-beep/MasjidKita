@@ -18,6 +18,7 @@ import {
   MapPin, 
   User, 
   PlusCircle, 
+  Plus,
   Trash2, 
   Edit3, 
   ExternalLink, 
@@ -39,6 +40,7 @@ interface InformasiKegiatanViewProps {
   onDeleteEvent: (id: string) => void;
   gallery: GalleryItem[];
   onAddGallery: (g: Omit<GalleryItem, 'id'>) => void;
+  onEditGallery?: (g: GalleryItem) => void;
   onDeleteGallery: (id: string) => void;
   currentUserRole: UserRole;
   onOpenLogin: () => void;
@@ -55,6 +57,7 @@ export const InformasiKegiatanView: React.FC<InformasiKegiatanViewProps> = ({
   onDeleteEvent,
   gallery,
   onAddGallery,
+  onEditGallery,
   onDeleteGallery,
   currentUserRole,
   onOpenLogin
@@ -87,6 +90,54 @@ export const InformasiKegiatanView: React.FC<InformasiKegiatanViewProps> = ({
   const [eventLokasi, setEventLokasi] = useState('Masjid As Shomad');
   const [eventNarasumber, setEventNarasumber] = useState('');
   const [eventStatus, setEventStatus] = useState<'akan_datang' | 'berlangsung' | 'selesai'>('akan_datang');
+
+  // Modal Input / Edit Galeri
+  const [isGalleryModalOpen, setIsGalleryModalOpen] = useState(false);
+  const [editingGallery, setEditingGallery] = useState<GalleryItem | null>(null);
+  const [galleryJudul, setGalleryJudul] = useState('');
+  const [galleryDeskripsi, setGalleryDeskripsi] = useState('');
+  const [galleryMediaUrl, setGalleryMediaUrl] = useState('');
+  const [galleryTanggal, setGalleryTanggal] = useState('');
+
+  const handleOpenAddGallery = () => {
+    setEditingGallery(null);
+    setGalleryJudul('');
+    setGalleryDeskripsi('');
+    setGalleryMediaUrl('');
+    setGalleryTanggal(new Date().toISOString().split('T')[0]);
+    setIsGalleryModalOpen(true);
+  };
+
+  const handleOpenEditGallery = (g: GalleryItem) => {
+    setEditingGallery(g);
+    setGalleryJudul(g.judul);
+    setGalleryDeskripsi(g.deskripsi);
+    setGalleryMediaUrl(g.mediaUrl);
+    setGalleryTanggal(g.tanggal);
+    setIsGalleryModalOpen(true);
+  };
+
+  const handleSubmitGallery = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingGallery && onEditGallery) {
+      onEditGallery({
+        ...editingGallery,
+        judul: galleryJudul,
+        deskripsi: galleryDeskripsi,
+        mediaUrl: galleryMediaUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80',
+        tanggal: galleryTanggal || editingGallery.tanggal
+      });
+    } else {
+      onAddGallery({
+        judul: galleryJudul,
+        deskripsi: galleryDeskripsi,
+        mediaUrl: galleryMediaUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80',
+        tanggal: galleryTanggal || new Date().toISOString().split('T')[0],
+        tipe: 'foto'
+      });
+    }
+    setIsGalleryModalOpen(false);
+  };
 
   // Share Notification Tooltip
   const [copiedShareId, setCopiedShareId] = useState<string | null>(null);
@@ -458,29 +509,65 @@ export const InformasiKegiatanView: React.FC<InformasiKegiatanViewProps> = ({
       {/* 3. GALERI FOTO DAN VIDEO */}
       {subTab === 'galeri' && (
         <div className="space-y-4">
-          <p className="text-xs text-slate-500">
-            Dokumentasi pelaksanaan ibadah, kajian, fardhu kifayah, kerja bakti, dan kegiatan sosial Masjid As Shomad.
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <p className="text-xs text-slate-500">
+              Dokumentasi pelaksanaan ibadah, kajian, fardhu kifayah, kerja bakti, dan kegiatan sosial Masjid As Shomad.
+            </p>
+            {canManage && (
+              <button
+                onClick={handleOpenAddGallery}
+                className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Tambah Foto Dokumentasi</span>
+              </button>
+            )}
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {gallery.map((item) => (
               <div
                 key={item.id}
-                className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs group"
+                className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs group flex flex-col justify-between"
               >
-                <div className="h-44 overflow-hidden relative">
-                  <img
-                    src={item.mediaUrl}
-                    alt={item.judul}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                  <span className="absolute bottom-2 right-2 bg-slate-900/80 text-white text-[10px] px-2 py-0.5 rounded backdrop-blur-xs font-mono">
-                    {formatDateIndo(item.tanggal)}
-                  </span>
+                <div>
+                  <div className="h-44 overflow-hidden relative">
+                    <img
+                      src={item.mediaUrl}
+                      alt={item.judul}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                    <span className="absolute bottom-2 right-2 bg-slate-900/80 text-white text-[10px] px-2 py-0.5 rounded backdrop-blur-xs font-mono">
+                      {formatDateIndo(item.tanggal)}
+                    </span>
+                  </div>
+                  <div className="p-3.5">
+                    <h4 className="font-bold text-slate-900 text-xs">{item.judul}</h4>
+                    <p className="text-[11px] text-slate-500 mt-1 line-clamp-2">{item.deskripsi}</p>
+                  </div>
                 </div>
-                <div className="p-3.5">
-                  <h4 className="font-bold text-slate-900 text-xs">{item.judul}</h4>
-                  <p className="text-[11px] text-slate-500 mt-1 line-clamp-2">{item.deskripsi}</p>
-                </div>
+
+                {canManage && (
+                  <div className="px-3.5 pb-3 pt-2 border-t border-slate-100 flex items-center justify-end space-x-1.5">
+                    <button
+                      onClick={() => handleOpenEditGallery(item)}
+                      className="p-1 text-blue-600 hover:bg-blue-50 rounded transition cursor-pointer"
+                      title="Edit Foto Dokumentasi"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Hapus foto dokumentasi "${item.judul}"?`)) {
+                          onDeleteGallery(item.id);
+                        }
+                      }}
+                      className="p-1 text-rose-600 hover:bg-rose-50 rounded transition cursor-pointer"
+                      title="Hapus Foto Dokumentasi"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -831,6 +918,95 @@ export const InformasiKegiatanView: React.FC<InformasiKegiatanViewProps> = ({
                   className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold"
                 >
                   Simpan Jadwal
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL INPUT / EDIT DOKUMENTASI GALERI */}
+      {isGalleryModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95">
+            <div className="bg-emerald-800 text-white px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Edit3 className="w-5 h-5 text-emerald-300" />
+                <h3 className="font-bold text-base">
+                  {editingGallery ? 'Edit Dokumentasi Kegiatan' : 'Tambah Dokumentasi Kegiatan'}
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsGalleryModalOpen(false)}
+                className="text-emerald-200 hover:text-white text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitGallery} className="p-6 space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Judul / Kegiatan Dokumentasi *</label>
+                <input
+                  type="text"
+                  required
+                  value={galleryJudul}
+                  onChange={(e) => setGalleryJudul(e.target.value)}
+                  placeholder="Contoh: Kerja Bakti & Pembersihan Karpet Masjid"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-hidden font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Tanggal Kegiatan *</label>
+                <input
+                  type="date"
+                  required
+                  value={galleryTanggal}
+                  onChange={(e) => setGalleryTanggal(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-hidden"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">URL Foto / Media (Opsional)</label>
+                <input
+                  type="url"
+                  value={galleryMediaUrl}
+                  onChange={(e) => setGalleryMediaUrl(e.target.value)}
+                  placeholder="https://images.unsplash.com/..."
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-hidden"
+                />
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  Kosongkan untuk menggunakan gambar standar bertema masjid
+                </span>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Deskripsi Singkat *</label>
+                <textarea
+                  rows={3}
+                  required
+                  value={galleryDeskripsi}
+                  onChange={(e) => setGalleryDeskripsi(e.target.value)}
+                  placeholder="Keterangan singkat mengenai dokumentasi kegiatan..."
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-hidden"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end space-x-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsGalleryModalOpen(false)}
+                  className="px-4 py-2 border border-slate-300 rounded-xl font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold shadow-xs transition cursor-pointer"
+                >
+                  {editingGallery ? 'Simpan Perubahan' : 'Simpan Dokumentasi'}
                 </button>
               </div>
             </form>

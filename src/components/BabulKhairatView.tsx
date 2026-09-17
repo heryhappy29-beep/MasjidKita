@@ -25,7 +25,6 @@ import {
   Phone,
   MessageCircle,
   FileCheck,
-  RotateCcw,
   Calculator,
   Sliders,
   Info
@@ -44,7 +43,6 @@ interface BabulKhairatViewProps {
   onAddClaim: (c: Omit<BabulKhairatClaim, 'id'>) => void;
   onEditClaim: (c: BabulKhairatClaim) => void;
   onDeleteClaim: (id: string) => void;
-  onResetBabulData?: () => void;
   currentUserRole: UserRole;
   onOpenLogin: () => void;
 }
@@ -62,7 +60,6 @@ export const BabulKhairatView: React.FC<BabulKhairatViewProps> = ({
   onAddClaim,
   onEditClaim,
   onDeleteClaim,
-  onResetBabulData,
   currentUserRole,
   onOpenLogin
 }) => {
@@ -128,6 +125,99 @@ export const BabulKhairatView: React.FC<BabulKhairatViewProps> = ({
 
   // Cetak Kwitansi Iuran
   const [receiptPayment, setReceiptPayment] = useState<BabulKhairatPayment | null>(null);
+
+  // Modal State: Edit Iuran
+  const [editingPayment, setEditingPayment] = useState<BabulKhairatPayment | null>(null);
+  const [editPayBulan, setEditPayBulan] = useState('');
+  const [editPayTahun, setEditPayTahun] = useState<number>(2025);
+  const [editPayTotalNominal, setEditPayTotalNominal] = useState<number | ''>('');
+  const [editPayTanggal, setEditPayTanggal] = useState('');
+  const [editPayMetode, setEditPayMetode] = useState<'tunai' | 'transfer_bni'>('tunai');
+  const [editPayStatus, setEditPayStatus] = useState<'lunas' | 'menunggak'>('lunas');
+  const [editPayPetugas, setEditPayPetugas] = useState('');
+
+  const handleOpenEditPayment = (p: BabulKhairatPayment) => {
+    setEditingPayment(p);
+    setEditPayBulan(p.bulan);
+    setEditPayTahun(p.tahun);
+    setEditPayTotalNominal(p.totalNominal);
+    setEditPayTanggal(p.tanggalBayar || new Date().toISOString().split('T')[0]);
+    setEditPayMetode(p.metode);
+    setEditPayStatus(p.status);
+    setEditPayPetugas(p.petugas || 'Bapak Zul Khaidir');
+  };
+
+  const handleSaveEditPayment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPayment || !editPayTotalNominal) return;
+
+    onEditPayment({
+      ...editingPayment,
+      bulan: editPayBulan,
+      tahun: editPayTahun,
+      totalNominal: Number(editPayTotalNominal),
+      tanggalBayar: editPayStatus === 'lunas' ? editPayTanggal : '',
+      metode: editPayMetode,
+      status: editPayStatus,
+      petugas: editPayPetugas
+    });
+
+    setEditingPayment(null);
+  };
+
+  // Modal State: Edit Klaim
+  const [editingClaim, setEditingClaim] = useState<BabulKhairatClaim | null>(null);
+  const [editClaimAlmarhum, setEditClaimAlmarhum] = useState('');
+  const [editClaimAhliWaris, setEditClaimAhliWaris] = useState('');
+  const [editClaimNoHp, setEditClaimNoHp] = useState('');
+  const [editClaimAlamat, setEditClaimAlamat] = useState('');
+  const [editBiayaAmbulans, setEditBiayaAmbulans] = useState<number | ''>(350000);
+  const [editBiayaKafan, setEditBiayaKafan] = useState<number | ''>(400000);
+  const [editBiayaMakam, setEditBiayaMakam] = useState<number | ''>(1000000);
+  const [editSantunanDuka, setEditSantunanDuka] = useState<number | ''>(1500000);
+  const [editClaimTanggal, setEditClaimTanggal] = useState('');
+  const [editClaimStatus, setEditClaimStatus] = useState<'dicairkan' | 'diproses' | 'selesai'>('dicairkan');
+  const [editClaimKeterangan, setEditClaimKeterangan] = useState('');
+
+  const handleOpenEditClaim = (c: BabulKhairatClaim) => {
+    setEditingClaim(c);
+    setEditClaimAlmarhum(c.namaAlmarhum);
+    setEditClaimAhliWaris(c.ahliWaris);
+    setEditClaimNoHp(c.noHp);
+    setEditClaimAlamat(c.alamat);
+    setEditBiayaAmbulans(c.biayaAmbulans);
+    setEditBiayaKafan(c.biayaKainKafan);
+    setEditBiayaMakam(c.biayaMakam);
+    setEditSantunanDuka(c.santunanKeluarga);
+    setEditClaimTanggal(c.tanggal);
+    setEditClaimStatus(c.status);
+    setEditClaimKeterangan(c.keterangan);
+  };
+
+  const handleSaveEditClaim = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingClaim) return;
+
+    const total = Number(editBiayaAmbulans || 0) + Number(editBiayaKafan || 0) + Number(editBiayaMakam || 0) + Number(editSantunanDuka || 0);
+
+    onEditClaim({
+      ...editingClaim,
+      namaAlmarhum: editClaimAlmarhum,
+      ahliWaris: editClaimAhliWaris,
+      noHp: editClaimNoHp,
+      alamat: editClaimAlamat,
+      biayaAmbulans: Number(editBiayaAmbulans || 0),
+      biayaKainKafan: Number(editBiayaKafan || 0),
+      biayaMakam: Number(editBiayaMakam || 0),
+      santunanKeluarga: Number(editSantunanDuka || 0),
+      totalKlaim: total,
+      tanggal: editClaimTanggal || editingClaim.tanggal,
+      status: editClaimStatus,
+      keterangan: editClaimKeterangan
+    });
+
+    setEditingClaim(null);
+  };
 
   // Perhitungan Keuangan Babul Khairat yang Akurat & Transparan
   const financeSummary = useMemo(() => {
@@ -400,21 +490,6 @@ export const BabulKhairatView: React.FC<BabulKhairatViewProps> = ({
             </button>
           )}
 
-          {canManage && onResetBabulData && (
-            <button
-              onClick={() => {
-                if (window.confirm('Muat ulang data standar Babul Khairat (5 KK, riwayat iuran & klaim resmi)? Data akan dipulihkan ke master data.')) {
-                  onResetBabulData();
-                }
-              }}
-              className="flex items-center space-x-1 px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-bold border border-blue-200 transition shadow-2xs"
-              title="Pulihkan data standar 5 KK dan transaksi Babul Khairat"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Muat Data Standar</span>
-            </button>
-          )}
-
           {canManage && subTab === 'keanggotaan' && (
             <button
               onClick={handleOpenAddFamily}
@@ -461,17 +536,17 @@ export const BabulKhairatView: React.FC<BabulKhairatViewProps> = ({
                 <div>
                   <h4 className="font-bold text-amber-900 text-sm">Data Keanggotaan Babul Khairat Masih Kosong</h4>
                   <p className="text-xs text-amber-700">
-                    Browser belum memuat daftar KK warga. Klik tombol di samping untuk memuat kembali 5 KK contoh dan riwayat transaksi resmi.
+                    Belum ada data Kepala Keluarga yang terdaftar. Daftarkan KK warga melalui tab Keanggotaan KK.
                   </p>
                 </div>
               </div>
-              {onResetBabulData && (
+              {canManage && (
                 <button
-                  onClick={onResetBabulData}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs flex items-center space-x-1.5 shrink-0 shadow-xs"
+                  onClick={handleOpenAddFamily}
+                  className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl text-xs flex items-center space-x-1.5 shrink-0 shadow-xs"
                 >
-                  <RotateCcw className="w-4 h-4" />
-                  <span>Muat Data Standar</span>
+                  <UserPlus className="w-4 h-4" />
+                  <span>Daftar KK Baru</span>
                 </button>
               )}
             </div>
@@ -816,17 +891,26 @@ export const BabulKhairatView: React.FC<BabulKhairatViewProps> = ({
                           )
                         )}
                         {canManage && (
-                          <button
-                            onClick={() => {
-                              if (window.confirm(`Hapus catatan iuran ${p.namaKk}?`)) {
-                                onDeletePayment(p.id);
-                              }
-                            }}
-                            className="p-1 text-rose-600 hover:bg-rose-50 rounded"
-                            title="Hapus Iuran"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          <>
+                            <button
+                              onClick={() => handleOpenEditPayment(p)}
+                              className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                              title="Edit Iuran"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (window.confirm(`Hapus catatan iuran ${p.namaKk}?`)) {
+                                  onDeletePayment(p.id);
+                                }
+                              }}
+                              className="p-1 text-rose-600 hover:bg-rose-50 rounded"
+                              title="Hapus Iuran"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </>
                         )}
                       </div>
                     </td>
@@ -873,14 +957,20 @@ export const BabulKhairatView: React.FC<BabulKhairatViewProps> = ({
                 <p className="text-[11px] text-slate-600 italic">{c.keterangan}</p>
 
                 {canManage && (
-                  <div className="pt-2 border-t border-slate-200 flex justify-end">
+                  <div className="pt-2 border-t border-slate-200 flex justify-end space-x-3">
+                    <button
+                      onClick={() => handleOpenEditClaim(c)}
+                      className="text-xs text-blue-600 hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" /> Edit Klaim
+                    </button>
                     <button
                       onClick={() => {
                         if (window.confirm(`Hapus klaim santunan ${c.namaAlmarhum}?`)) {
                           onDeleteClaim(c.id);
                         }
                       }}
-                      className="text-xs text-rose-600 hover:underline font-semibold flex items-center gap-1"
+                      className="text-xs text-rose-600 hover:underline font-semibold flex items-center gap-1 cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" /> Hapus Klaim
                     </button>
@@ -1152,21 +1242,9 @@ export const BabulKhairatView: React.FC<BabulKhairatViewProps> = ({
               <div className="p-6 text-center space-y-4">
                 <AlertCircle className="w-10 h-10 text-amber-500 mx-auto" />
                 <p className="text-xs text-slate-600">
-                  Belum ada data Kepala Keluarga yang terdaftar. Daftarkan KK terlebih dahulu atau pulihkan data standar.
+                  Belum ada data Kepala Keluarga yang terdaftar. Daftarkan KK terlebih dahulu untuk mencatat iuran.
                 </p>
                 <div className="flex justify-center gap-2">
-                  {onResetBabulData && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onResetBabulData();
-                        setIsPaymentModalOpen(false);
-                      }}
-                      className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold"
-                    >
-                      Muat Data Standar
-                    </button>
-                  )}
                   <button
                     type="button"
                     onClick={() => {
@@ -1593,6 +1671,343 @@ export const BabulKhairatView: React.FC<BabulKhairatViewProps> = ({
                   className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold shadow-md"
                 >
                   Simpan Saldo Awal
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL EDIT IURAN */}
+      {editingPayment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95">
+            <div className="bg-emerald-800 text-white px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Edit3 className="w-5 h-5 text-emerald-300" />
+                <h3 className="font-bold text-base">Edit Catatan Iuran Babul Khairat</h3>
+              </div>
+              <button
+                onClick={() => setEditingPayment(null)}
+                className="text-emerald-200 hover:text-white text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditPayment} className="p-6 space-y-4">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
+                  Kepala Keluarga Terdaftar
+                </span>
+                <p className="font-bold text-slate-800 text-sm mt-0.5">{editingPayment.namaKk}</p>
+                <p className="text-xs text-slate-500">Jumlah Jiwa: {editingPayment.jumlahJiwa} Orang</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Bulan Iuran *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editPayBulan}
+                    onChange={(e) => setEditPayBulan(e.target.value)}
+                    placeholder="Contoh: Januari 2025"
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Tahun *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={editPayTahun}
+                    onChange={(e) => setEditPayTahun(Number(e.target.value) || 2025)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Total Nominal (Rp) *
+                  </label>
+                  <input
+                    type="number"
+                    min="1000"
+                    required
+                    value={editPayTotalNominal}
+                    onChange={(e) => setEditPayTotalNominal(e.target.value ? Number(e.target.value) : '')}
+                    className="w-full px-3 py-2 text-xs font-bold text-emerald-800 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Status Pembayaran *
+                  </label>
+                  <select
+                    value={editPayStatus}
+                    onChange={(e) => setEditPayStatus(e.target.value as any)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-hidden font-bold"
+                  >
+                    <option value="lunas">Lunas</option>
+                    <option value="menunggak">Menunggak</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Metode Pembayaran
+                  </label>
+                  <select
+                    value={editPayMetode}
+                    onChange={(e) => setEditPayMetode(e.target.value as any)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                  >
+                    <option value="tunai">Tunai</option>
+                    <option value="transfer_bni">Transfer BNI</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Tanggal Bayar
+                  </label>
+                  <input
+                    type="date"
+                    value={editPayTanggal}
+                    onChange={(e) => setEditPayTanggal(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Petugas Penerima
+                </label>
+                <input
+                  type="text"
+                  value={editPayPetugas}
+                  onChange={(e) => setEditPayPetugas(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setEditingPayment(null)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded-xl shadow-xs transition cursor-pointer"
+                >
+                  Simpan Perubahan
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL EDIT KLAIM SANTUNAN */}
+      {editingClaim && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95">
+            <div className="bg-rose-800 text-white px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Edit3 className="w-5 h-5 text-rose-300" />
+                <h3 className="font-bold text-base">Edit Klaim Santunan Kematian</h3>
+              </div>
+              <button
+                onClick={() => setEditingClaim(null)}
+                className="text-rose-200 hover:text-white text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditClaim} className="p-6 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Nama Almarhum/Almarhumah *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editClaimAlmarhum}
+                    onChange={(e) => setEditClaimAlmarhum(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-hidden font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Ahli Waris / Penerima *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editClaimAhliWaris}
+                    onChange={(e) => setEditClaimAhliWaris(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-hidden"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    No. WhatsApp / HP
+                  </label>
+                  <input
+                    type="text"
+                    value={editClaimNoHp}
+                    onChange={(e) => setEditClaimNoHp(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-hidden"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Tanggal Klaim *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editClaimTanggal}
+                    onChange={(e) => setEditClaimTanggal(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-hidden"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Alamat Duka
+                </label>
+                <input
+                  type="text"
+                  value={editClaimAlamat}
+                  onChange={(e) => setEditClaimAlamat(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-hidden"
+                />
+              </div>
+
+              {/* Rincian Biaya */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block">
+                  Rincian Pembiayaan Fardhu Kifayah & Santunan
+                </span>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Biaya Ambulans (Rp)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editBiayaAmbulans}
+                      onChange={(e) => setEditBiayaAmbulans(e.target.value ? Number(e.target.value) : '')}
+                      className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:outline-hidden"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Kain Kafan Lengkap (Rp)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editBiayaKafan}
+                      onChange={(e) => setEditBiayaKafan(e.target.value ? Number(e.target.value) : '')}
+                      className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:outline-hidden"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Biaya Pemakaman (Rp)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editBiayaMakam}
+                      onChange={(e) => setEditBiayaMakam(e.target.value ? Number(e.target.value) : '')}
+                      className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:outline-hidden"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Santunan Keluarga (Rp)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editSantunanDuka}
+                      onChange={(e) => setEditSantunanDuka(e.target.value ? Number(e.target.value) : '')}
+                      className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:outline-hidden"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-xs">
+                  <span className="font-bold text-slate-700">Total Klaim Santunan:</span>
+                  <strong className="text-sm font-extrabold text-rose-700">
+                    {formatRupiah(Number(editBiayaAmbulans || 0) + Number(editBiayaKafan || 0) + Number(editBiayaMakam || 0) + Number(editSantunanDuka || 0))}
+                  </strong>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Status Klaim *
+                  </label>
+                  <select
+                    value={editClaimStatus}
+                    onChange={(e) => setEditClaimStatus(e.target.value as any)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-hidden"
+                  >
+                    <option value="dicairkan">Dicairkan</option>
+                    <option value="diproses">Diproses</option>
+                    <option value="selesai">Selesai</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Keterangan
+                  </label>
+                  <input
+                    type="text"
+                    value={editClaimKeterangan}
+                    onChange={(e) => setEditClaimKeterangan(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-hidden"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setEditingClaim(null)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 text-xs font-bold text-white bg-rose-700 hover:bg-rose-800 rounded-xl shadow-xs transition cursor-pointer"
+                >
+                  Simpan Perubahan
                 </button>
               </div>
             </form>

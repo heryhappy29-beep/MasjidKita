@@ -24,7 +24,6 @@ import {
   QrCode, 
   Layers, 
   ShieldCheck,
-  RotateCcw,
   Plus
 } from 'lucide-react';
 
@@ -35,6 +34,7 @@ interface QurbanViewProps {
   onDeleteShohibul: (id: string) => void;
   installments: QurbanInstallment[];
   onAddInstallment: (inst: Omit<QurbanInstallment, 'id'>) => void;
+  onEditInstallment?: (inst: QurbanInstallment) => void;
   onDeleteInstallment: (id: string) => void;
   stocks: QurbanStock[];
   onAddStock?: (s: Omit<QurbanStock, 'id'>) => void;
@@ -42,7 +42,6 @@ interface QurbanViewProps {
   onDeleteStock?: (id: string) => void;
   currentUserRole: UserRole;
   onOpenLogin: () => void;
-  onResetQurbanData?: () => void;
 }
 
 export const formatJenisQurban = (jenis: ShohibulQurban['jenisQurban'], kelompok?: number): string => {
@@ -60,14 +59,14 @@ export const QurbanView: React.FC<QurbanViewProps> = ({
   onDeleteShohibul,
   installments,
   onAddInstallment,
+  onEditInstallment,
   onDeleteInstallment,
   stocks,
   onAddStock,
   onEditStock,
   onDeleteStock,
   currentUserRole,
-  onOpenLogin,
-  onResetQurbanData
+  onOpenLogin
 }) => {
   const canManage = currentUserRole === 'super_admin' || currentUserRole === 'bendahara_qurban';
 
@@ -108,6 +107,53 @@ export const QurbanView: React.FC<QurbanViewProps> = ({
   const [receiptShohibul, setReceiptShohibul] = useState<ShohibulQurban | null>(null);
   // Kwitansi Cetak Bukti Cicilan
   const [receiptInstallment, setReceiptInstallment] = useState<{ inst: QurbanInstallment; shohibul?: ShohibulQurban } | null>(null);
+
+  // Modal Edit Cicilan
+  const [editingInstallment, setEditingInstallment] = useState<QurbanInstallment | null>(null);
+  const [editInstNominal, setEditInstNominal] = useState<number | ''>('');
+  const [editInstTanggal, setEditInstTanggal] = useState('');
+  const [editInstMetode, setEditInstMetode] = useState<'transfer_bni' | 'qris' | 'ewallet' | 'tunai'>('transfer_bni');
+  const [editInstCatatan, setEditInstCatatan] = useState('');
+
+  const handleOpenEditInstallment = (inst: QurbanInstallment) => {
+    setEditingInstallment(inst);
+    setEditInstNominal(inst.nominal);
+    setEditInstTanggal(inst.tanggal);
+    setEditInstMetode(inst.metode);
+    setEditInstCatatan(inst.catatan || '');
+  };
+
+  const handleSaveEditInstallment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingInstallment || !onEditInstallment || !editInstNominal || Number(editInstNominal) <= 0) return;
+
+    const newNominal = Number(editInstNominal);
+    const diff = newNominal - editingInstallment.nominal;
+
+    const updatedInst: QurbanInstallment = {
+      ...editingInstallment,
+      nominal: newNominal,
+      tanggal: editInstTanggal || editingInstallment.tanggal,
+      metode: editInstMetode,
+      catatan: editInstCatatan
+    };
+
+    onEditInstallment(updatedInst);
+
+    // Synchronize Shohibul balance
+    const shohibul = shohibulList.find((s) => s.id === editingInstallment.shohibulId);
+    if (shohibul && diff !== 0) {
+      const newTerbayar = Math.max(0, shohibul.terbayar + diff);
+      const isLunas = newTerbayar >= shohibul.totalBiaya;
+      onEditShohibul({
+        ...shohibul,
+        terbayar: newTerbayar,
+        status: isLunas ? 'lunas' : (newTerbayar > 0 ? 'belum_lunas' : 'belum_bayar')
+      });
+    }
+
+    setEditingInstallment(null);
+  };
 
   // Perhitungan Ringkasan Qurban
   const qurbanSummary = useMemo(() => {
@@ -408,20 +454,6 @@ export const QurbanView: React.FC<QurbanViewProps> = ({
 
         {/* Action Button */}
         <div className="flex items-center space-x-2">
-          {onResetQurbanData && canManage && (
-            <button
-              onClick={() => {
-                if (window.confirm('Muat ulang data transaksi qurban ke standar (termasuk qurban Heri 1 ekor domba Rp 3.500.000,- cicilan Rp 1.000.000,- sisa Rp 2.500.000,- status Belum Lunas)?')) {
-                  onResetQurbanData();
-                }
-              }}
-              className="flex items-center space-x-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold border border-slate-300 transition"
-              title="Reset ke data awal transaksi qurban"
-            >
-              <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-              <span className="hidden sm:inline">Muat Data Standar</span>
-            </button>
-          )}
           <button
             onClick={handleExportQurban}
             className="flex items-center space-x-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold border border-slate-300 transition"
@@ -698,17 +730,35 @@ export const QurbanView: React.FC<QurbanViewProps> = ({
                             <span>Kwitansi</span>
                           </button>
                           {canManage && (
-                            <button
-                              onClick={() => {
-                                if (window.confirm(`Hapus mutasi cicilan ${inst.kuitansiNo} (${formatRupiah(inst.nominal)})?`)) {
-                                  onDeleteInstallment(inst.id);
-                                }
-                              }}
-                              className="p-1 text-rose-600 hover:bg-rose-50 rounded"
-                              title="Hapus Mutasi"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            <>
+                              <button
+                                onClick={() => handleOpenEditInstallment(inst)}
+                                className="p-1 text-blue-600 hover:bg-blue-50 rounded transition"
+                                title="Edit Mutasi Cicilan"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (window.confirm(`Hapus mutasi cicilan ${inst.kuitansiNo} (${formatRupiah(inst.nominal)})?`)) {
+                                    onDeleteInstallment(inst.id);
+                                    if (shohibul) {
+                                      const newTerbayar = Math.max(0, shohibul.terbayar - inst.nominal);
+                                      const isLunas = newTerbayar >= shohibul.totalBiaya;
+                                      onEditShohibul({
+                                        ...shohibul,
+                                        terbayar: newTerbayar,
+                                        status: isLunas ? 'lunas' : (newTerbayar > 0 ? 'belum_lunas' : 'belum_bayar')
+                                      });
+                                    }
+                                  }
+                                }}
+                                className="p-1 text-rose-600 hover:bg-rose-50 rounded transition"
+                                title="Hapus Mutasi"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>
@@ -1666,6 +1716,109 @@ export const QurbanView: React.FC<QurbanViewProps> = ({
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>{editingStock ? 'Simpan Perubahan' : 'Tambah Hewan'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL EDIT CICILAN QURBAN */}
+      {editingInstallment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95">
+            <div className="bg-emerald-800 text-white px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Edit3 className="w-5 h-5 text-emerald-300" />
+                <h3 className="font-bold text-base">Edit Mutasi Cicilan Qurban</h3>
+              </div>
+              <button
+                onClick={() => setEditingInstallment(null)}
+                className="text-emerald-200 hover:text-white text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditInstallment} className="p-6 space-y-4">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
+                  Informasi Peserta & Kuitansi
+                </span>
+                <p className="font-bold text-slate-800 text-sm mt-0.5">{editingInstallment.namaPeserta}</p>
+                <p className="text-xs text-slate-500 font-mono">No. Kuitansi: {editingInstallment.kuitansiNo}</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Nominal Pembayaran (Rp) *
+                  </label>
+                  <input
+                    type="number"
+                    min="1000"
+                    required
+                    value={editInstNominal}
+                    onChange={(e) => setEditInstNominal(e.target.value ? Number(e.target.value) : '')}
+                    className="w-full px-3 py-2 text-xs font-bold text-emerald-800 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Tanggal Pembayaran *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editInstTanggal}
+                    onChange={(e) => setEditInstTanggal(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Metode Pembayaran *
+                </label>
+                <select
+                  value={editInstMetode}
+                  onChange={(e) => setEditInstMetode(e.target.value as any)}
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                >
+                  <option value="transfer_bni">Transfer Bank BNI (8881-2072-09)</option>
+                  <option value="qris">QRIS Standar Masjid</option>
+                  <option value="ewallet">E-Wallet (GoPay / OVO / Dana)</option>
+                  <option value="tunai">Setoran Tunai ke Panitia</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Catatan / Keterangan
+                </label>
+                <input
+                  type="text"
+                  value={editInstCatatan}
+                  onChange={(e) => setEditInstCatatan(e.target.value)}
+                  placeholder="Keterangan tambahan mutasi cicilan"
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setEditingInstallment(null)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded-xl shadow-xs transition cursor-pointer"
+                >
+                  Simpan Perubahan
                 </button>
               </div>
             </form>

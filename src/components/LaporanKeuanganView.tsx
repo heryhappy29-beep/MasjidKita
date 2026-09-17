@@ -1,11 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { 
   FinancialTransaction, 
-  BankStatementItem, 
   UserRole 
 } from '../types';
 import { formatRupiah, formatDateIndo, exportToCSV } from '../utils/formatters';
-import { MosqueLogo } from './MosqueLogo';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -18,14 +16,12 @@ import {
   Trash2, 
   Download, 
   Printer, 
-  CheckCircle2, 
-  AlertCircle, 
-  RefreshCw, 
   Lock, 
   FileSpreadsheet, 
   BarChart3, 
-  Scale, 
-  FileText 
+  FileText,
+  ArrowRight,
+  Database
 } from 'lucide-react';
 
 interface LaporanKeuanganViewProps {
@@ -33,10 +29,9 @@ interface LaporanKeuanganViewProps {
   onAddTransaction: (tx: Omit<FinancialTransaction, 'id'>) => void;
   onEditTransaction: (tx: FinancialTransaction) => void;
   onDeleteTransaction: (id: string) => void;
-  bankStatements: BankStatementItem[];
-  onToggleReconciled: (txId: string) => void;
   currentUserRole: UserRole;
   onOpenLogin: () => void;
+  onOpenGoogleSheets?: () => void;
 }
 
 export const LaporanKeuanganView: React.FC<LaporanKeuanganViewProps> = ({
@@ -44,15 +39,14 @@ export const LaporanKeuanganView: React.FC<LaporanKeuanganViewProps> = ({
   onAddTransaction,
   onEditTransaction,
   onDeleteTransaction,
-  bankStatements,
-  onToggleReconciled,
   currentUserRole,
-  onOpenLogin
+  onOpenLogin,
+  onOpenGoogleSheets
 }) => {
   const canManage = currentUserRole === 'super_admin' || currentUserRole === 'bendahara_masjid';
 
   // State Sub-Tab
-  const [subTab, setSubTab] = useState<'ringkasan' | 'jurnal' | 'laporan_resmi' | 'rekonsiliasi'>('ringkasan');
+  const [subTab, setSubTab] = useState<'ringkasan' | 'jurnal'>('ringkasan');
   
   // Search & Filter
   const [searchTerm, setSearchTerm] = useState('');
@@ -101,6 +95,33 @@ export const LaporanKeuanganView: React.FC<LaporanKeuanganViewProps> = ({
     return { totalMasuk, totalKeluar, kasTunai, bankBni, saldoAkhir };
   }, [transactions]);
 
+  // Breakdown kategori dinamis dari seluruh data transaksi
+  const categoryBreakdown = useMemo(() => {
+    const masuk: Record<string, number> = {};
+    const keluar: Record<string, number> = {};
+    transactions.forEach((tx) => {
+      if (tx.jenis === 'pemasukan') {
+        masuk[tx.kategori] = (masuk[tx.kategori] || 0) + tx.jumlah;
+      } else if (tx.jenis === 'pengeluaran') {
+        keluar[tx.kategori] = (keluar[tx.kategori] || 0) + tx.jumlah;
+      }
+    });
+
+    const topMasuk = Object.entries(masuk).sort((a, b) => b[1] - a[1]);
+    const topKeluar = Object.entries(keluar).sort((a, b) => b[1] - a[1]);
+
+    return { masuk, keluar, topMasuk, topKeluar };
+  }, [transactions]);
+
+  // 5 transaksi paling mutakhir untuk ditampilkan pada kartu ringkasan
+  const recentTransactions = useMemo(() => {
+    return [...transactions].sort((a, b) => {
+      const timeDiff = new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime();
+      if (timeDiff !== 0) return timeDiff;
+      return b.id.localeCompare(a.id);
+    }).slice(0, 5);
+  }, [transactions]);
+
   // Transaksi terfilter
   const filteredTransactions = useMemo(() => {
     return transactions.filter((tx) => {
@@ -110,7 +131,11 @@ export const LaporanKeuanganView: React.FC<LaporanKeuanganViewProps> = ({
       const matchType = selectedType === 'all' || tx.jenis === selectedType;
       const matchCat = selectedCategory === 'all' || tx.kategori === selectedCategory;
       return matchSearch && matchType && matchCat;
-    }).sort((a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime());
+    }).sort((a, b) => {
+      const timeDiff = new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime();
+      if (timeDiff !== 0) return timeDiff;
+      return b.id.localeCompare(a.id);
+    });
   }, [transactions, searchTerm, selectedType, selectedCategory]);
 
   // Handle Buka Form Edit
@@ -176,7 +201,7 @@ export const LaporanKeuanganView: React.FC<LaporanKeuanganViewProps> = ({
       ['LAPORAN TRANSAKSI KEUANGAN MASJID AS SHOMAD'],
       ['Tanggal Ekspor:', new Date().toLocaleDateString('id-ID')],
       [],
-      ['No', 'Tanggal', 'Deskripsi', 'Jenis', 'Kategori', 'Pemasukan (Rp)', 'Pengeluaran (Rp)', 'Metode Kas', 'Status Rekonsiliasi', 'Catatan']
+      ['No', 'Tanggal', 'Deskripsi', 'Jenis', 'Kategori', 'Pemasukan (Rp)', 'Pengeluaran (Rp)', 'Metode Kas', 'Catatan']
     ];
 
     transactions.forEach((tx, idx) => {
@@ -189,7 +214,6 @@ export const LaporanKeuanganView: React.FC<LaporanKeuanganViewProps> = ({
         tx.jenis === 'pemasukan' ? tx.jumlah : 0,
         tx.jenis === 'pengeluaran' ? tx.jumlah : 0,
         tx.metode === 'kas_tunai' ? 'Kas Tunai' : tx.metode === 'bank_bni' ? 'Bank BNI' : 'QRIS',
-        tx.reconciled ? 'Sudah Cocok' : 'Belum Cocok',
         tx.catatan || '-'
       ]);
     });
@@ -229,31 +253,19 @@ export const LaporanKeuanganView: React.FC<LaporanKeuanganViewProps> = ({
             <FileSpreadsheet className="w-4 h-4" />
             <span>Jurnal & Buku Besar</span>
           </button>
-          <button
-            onClick={() => setSubTab('laporan_resmi')}
-            className={`flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition ${
-              subTab === 'laporan_resmi'
-                ? 'bg-emerald-700 text-white shadow-xs'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <Scale className="w-4 h-4" />
-            <span>Laba Rugi & Neraca</span>
-          </button>
-          <button
-            onClick={() => setSubTab('rekonsiliasi')}
-            className={`flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition ${
-              subTab === 'rekonsiliasi'
-                ? 'bg-emerald-700 text-white shadow-xs'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <RefreshCw className="w-4 h-4" />
-            <span>Rekonsiliasi Bank</span>
-          </button>
         </div>
 
         <div className="flex items-center space-x-2">
+          {onOpenGoogleSheets && (
+            <button
+              onClick={onOpenGoogleSheets}
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg text-xs font-bold border border-emerald-300 transition cursor-pointer shadow-2xs"
+              title="Ekspor & Sinkronkan Kas ke Google Sheets"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
+              <span>Sync Google Sheets</span>
+            </button>
+          )}
           <button
             onClick={handleExportExcel}
             className="flex items-center space-x-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold border border-slate-300 transition"
@@ -411,38 +423,114 @@ export const LaporanKeuanganView: React.FC<LaporanKeuanganViewProps> = ({
               <div className="p-3 bg-emerald-50/70 rounded-xl border border-emerald-100">
                 <span className="font-bold text-emerald-900 block mb-2">Kategori Pemasukan Utama:</span>
                 <ul className="space-y-1.5 text-slate-700">
-                  <li className="flex justify-between">
-                    <span>Infaq Kotak Jumat</span>
-                    <span className="font-bold text-emerald-800">{formatRupiah(10060000)}</span>
-                  </li>
-                  <li className="flex justify-between">
-                    <span>Wakaf & Renovasi Kubah</span>
-                    <span className="font-bold text-emerald-800">{formatRupiah(10000000)}</span>
-                  </li>
-                  <li className="flex justify-between">
-                    <span>Infaq Digital QRIS</span>
-                    <span className="font-bold text-emerald-800">{formatRupiah(1870000)}</span>
-                  </li>
+                  {categoryBreakdown.topMasuk.length > 0 ? (
+                    categoryBreakdown.topMasuk.slice(0, 4).map(([kat, nom]) => (
+                      <li key={kat} className="flex justify-between">
+                        <span>{kat}</span>
+                        <span className="font-bold text-emerald-800">{formatRupiah(nom)}</span>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="text-slate-400 italic">Belum ada pos pemasukan</li>
+                  )}
                 </ul>
               </div>
 
               <div className="p-3 bg-rose-50/70 rounded-xl border border-rose-100">
                 <span className="font-bold text-rose-900 block mb-2">Kategori Pengeluaran Terbesar:</span>
                 <ul className="space-y-1.5 text-slate-700">
-                  <li className="flex justify-between">
-                    <span>Perlengkapan Masjid (Karpet)</span>
-                    <span className="font-bold text-rose-800">{formatRupiah(4500000)}</span>
-                  </li>
-                  <li className="flex justify-between">
-                    <span>Gaji & Honor Marbot</span>
-                    <span className="font-bold text-rose-800">{formatRupiah(3000000)}</span>
-                  </li>
-                  <li className="flex justify-between">
-                    <span>Listrik PLN & Air PAM</span>
-                    <span className="font-bold text-rose-800">{formatRupiah(1350000)}</span>
-                  </li>
+                  {categoryBreakdown.topKeluar.length > 0 ? (
+                    categoryBreakdown.topKeluar.slice(0, 4).map(([kat, nom]) => (
+                      <li key={kat} className="flex justify-between">
+                        <span>{kat}</span>
+                        <span className="font-bold text-rose-800">{formatRupiah(nom)}</span>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="text-slate-400 italic">Belum ada pos pengeluaran</li>
+                  )}
                 </ul>
               </div>
+            </div>
+          </div>
+
+          {/* TABEL TRANSAKSI TERBARU PADA RINGKASAN */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+            <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
+              <div>
+                <div className="flex items-center space-x-2">
+                  <h3 className="text-base font-bold text-slate-900">Catatan Transaksi Kas Terkini</h3>
+                  <span className="px-2.5 py-0.5 rounded-full text-2xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    Tersimpan Permanen ({transactions.length} Data)
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  5 transaksi kas operasional masjid terakhir — data tetap tersimpan aman di aplikasi meskipun setelah logout
+                </p>
+              </div>
+              <button
+                onClick={() => setSubTab('jurnal')}
+                className="inline-flex items-center space-x-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-3.5 py-2 rounded-xl transition border border-emerald-200 self-start sm:self-auto cursor-pointer"
+              >
+                <span>Buka Jurnal Selengkapnya</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-700">
+                <thead className="bg-slate-50 text-slate-600 uppercase font-semibold border-b border-slate-200">
+                  <tr>
+                    <th className="p-3">Tanggal</th>
+                    <th className="p-3">Uraian / Deskripsi</th>
+                    <th className="p-3">Kategori</th>
+                    <th className="p-3">Pos Kas / Metode</th>
+                    <th className="p-3 text-right">Nominal</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {recentTransactions.length > 0 ? (
+                    recentTransactions.map((tx) => (
+                      <tr key={tx.id} className="hover:bg-slate-50/80 transition">
+                        <td className="p-3 whitespace-nowrap font-medium text-slate-600">
+                          {formatDateIndo(tx.tanggal)}
+                        </td>
+                        <td className="p-3">
+                          <div className="font-semibold text-slate-900">{tx.deskripsi}</div>
+                          {tx.catatan && <div className="text-2xs text-slate-400 mt-0.5">{tx.catatan}</div>}
+                        </td>
+                        <td className="p-3 whitespace-nowrap">
+                          <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-medium">
+                            {tx.kategori}
+                          </span>
+                        </td>
+                        <td className="p-3 whitespace-nowrap">
+                          <span className="capitalize font-medium text-slate-600">
+                            {tx.metode === 'kas_tunai' ? 'Kas Tunai' : tx.metode === 'bank_bni' ? 'Bank BNI' : 'QRIS'}
+                          </span>
+                        </td>
+                        <td className="p-3 text-right whitespace-nowrap font-bold">
+                          {tx.jenis === 'pemasukan' && (
+                            <span className="text-emerald-700 font-bold">+{formatRupiah(tx.jumlah)}</span>
+                          )}
+                          {tx.jenis === 'pengeluaran' && (
+                            <span className="text-rose-700 font-bold">-{formatRupiah(tx.jumlah)}</span>
+                          )}
+                          {tx.jenis === 'transfer' && (
+                            <span className="text-blue-700 font-bold">{formatRupiah(tx.jumlah)}</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="p-6 text-center text-slate-400 italic">
+                        Belum ada data transaksi yang tersimpan.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -481,6 +569,19 @@ export const LaporanKeuanganView: React.FC<LaporanKeuanganViewProps> = ({
             </div>
           </div>
 
+          {/* Status Persistensi Transaksi */}
+          <div className="px-4 py-2.5 bg-emerald-50/60 border-b border-emerald-100 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex items-center space-x-2 text-emerald-900 font-medium">
+              <Database className="w-3.5 h-3.5 text-emerald-600" />
+              <span>
+                Total <strong>{transactions.length} transaksi</strong> tersimpan permanen di memori aplikasi (tetap tersimpan setelah logout).
+              </span>
+            </div>
+            <span className="text-2xs text-slate-500 font-medium">
+              Menampilkan {filteredTransactions.length} dari {transactions.length} data
+            </span>
+          </div>
+
           {/* Tabel Buku Besar */}
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs text-slate-700">
@@ -492,14 +593,13 @@ export const LaporanKeuanganView: React.FC<LaporanKeuanganViewProps> = ({
                   <th className="px-4 py-3 text-right">Debit (Masuk)</th>
                   <th className="px-4 py-3 text-right">Kredit (Keluar)</th>
                   <th className="px-4 py-3">Metode</th>
-                  <th className="px-4 py-3 text-center">Rekonsiliasi</th>
                   {canManage && <th className="px-4 py-3 text-center">Aksi</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredTransactions.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center py-8 text-slate-400">
+                    <td colSpan={canManage ? 7 : 6} className="text-center py-8 text-slate-400">
                       Tidak ada data transaksi yang sesuai filter.
                     </td>
                   </tr>
@@ -537,17 +637,6 @@ export const LaporanKeuanganView: React.FC<LaporanKeuanganViewProps> = ({
                           {tx.metode === 'bank_bni' ? 'Bank BNI' : tx.metode === 'qris' ? 'QRIS' : 'Kas Tunai'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-center whitespace-nowrap">
-                        {tx.reconciled ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                            <CheckCircle2 className="w-3.5 h-3.5" /> Cocok
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[11px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                            <AlertCircle className="w-3.5 h-3.5 text-amber-500" /> Pending
-                          </span>
-                        )}
-                      </td>
                       {canManage && (
                         <td className="px-4 py-3 text-center whitespace-nowrap">
                           <div className="flex items-center justify-center space-x-1.5">
@@ -577,273 +666,6 @@ export const LaporanKeuanganView: React.FC<LaporanKeuanganViewProps> = ({
                 )}
               </tbody>
             </table>
-          </div>
-        </div>
-      )}
-
-      {/* 3. LAPORAN LABA RUGI / SURPLUS DEFISIT & NERACA OTOMATIS */}
-      {subTab === 'laporan_resmi' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Laporan Laba Rugi / Surplus Defisit */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
-            <div className="flex items-center space-x-3.5 pb-4 border-b border-slate-200">
-              <div className="w-12 h-12 rounded-full border border-emerald-200 p-0.5 bg-emerald-50 shrink-0 flex items-center justify-center">
-                <MosqueLogo className="w-full h-full" />
-              </div>
-              <div>
-                <h3 className="text-base font-extrabold text-slate-900 uppercase tracking-wide">
-                  LAPORAN SURPLUS / DEFISIT OPERASIONAL
-                </h3>
-                <p className="text-xs text-slate-500">DKM MASJID AS SHOMAD GRIYA PRAJA - PERIODE BERJALAN</p>
-              </div>
-            </div>
-
-            <div className="mt-4 space-y-4 text-xs">
-              <div>
-                <h4 className="font-bold text-emerald-800 uppercase tracking-wider mb-2">1. Pendapatan / Penerimaan Kas:</h4>
-                <div className="space-y-1.5 pl-3 border-l-2 border-emerald-200">
-                  <div className="flex justify-between py-1 border-b border-slate-100">
-                    <span>Infaq Shalat Jumat</span>
-                    <span className="font-bold">{formatRupiah(10060000)}</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-slate-100">
-                    <span>Wakaf Pembangunan & Renovasi</span>
-                    <span className="font-bold">{formatRupiah(10000000)}</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-slate-100">
-                    <span>Infaq Digital (QRIS Statis)</span>
-                    <span className="font-bold">{formatRupiah(1870000)}</span>
-                  </div>
-                  <div className="flex justify-between py-1.5 font-extrabold text-emerald-900 bg-emerald-50 px-2 rounded">
-                    <span>TOTAL PENERIMAAN OPERASIONAL (A)</span>
-                    <span>{formatRupiah(stats.totalMasuk)}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-bold text-rose-800 uppercase tracking-wider mb-2">2. Beban & Pengeluaran Operasional:</h4>
-                <div className="space-y-1.5 pl-3 border-l-2 border-rose-200">
-                  <div className="flex justify-between py-1 border-b border-slate-100">
-                    <span>Tagihan Listrik PLN & Air Bersih</span>
-                    <span className="font-bold">{formatRupiah(1350000)}</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-slate-100">
-                    <span>Honor Marbot & Tenaga Kebersihan</span>
-                    <span className="font-bold">{formatRupiah(3000000)}</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-slate-100">
-                    <span>Pengadaan Karpet Saf & Inventaris</span>
-                    <span className="font-bold">{formatRupiah(4500000)}</span>
-                  </div>
-                  <div className="flex justify-between py-1.5 font-extrabold text-rose-900 bg-rose-50 px-2 rounded">
-                    <span>TOTAL BEBAN PENGELUARAN (B)</span>
-                    <span>{formatRupiah(stats.totalKeluar)}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-3 border-t-2 border-slate-200">
-                <div className="flex justify-between items-center p-3 bg-slate-900 text-white rounded-xl">
-                  <div>
-                    <span className="font-extrabold text-sm block">SURPLUS BERSIH PERIODE BERJALAN (A - B)</span>
-                    <span className="text-[11px] text-slate-300">Amanah kas bertambah untuk kemaslahatan umat</span>
-                  </div>
-                  <span className="text-base font-extrabold text-emerald-400">
-                    {formatRupiah(stats.saldoAkhir)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Neraca Keuangan Sederhana */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
-            <div className="flex items-center space-x-3.5 pb-4 border-b border-slate-200">
-              <div className="w-12 h-12 rounded-full border border-emerald-200 p-0.5 bg-emerald-50 shrink-0 flex items-center justify-center">
-                <MosqueLogo className="w-full h-full" />
-              </div>
-              <div>
-                <h3 className="text-base font-extrabold text-slate-900 uppercase tracking-wide">
-                  NERACA POSISI KEUANGAN MASJID
-                </h3>
-                <p className="text-xs text-slate-500">POSISI KAS & SALDO DANA UMAT GRIYA PRAJA</p>
-              </div>
-            </div>
-
-            <div className="mt-4 space-y-5 text-xs">
-              <div>
-                <h4 className="font-bold text-slate-800 uppercase tracking-wider mb-2">ASET LANCAR (AKTIVA):</h4>
-                <div className="space-y-1.5 pl-3 border-l-2 border-blue-200">
-                  <div className="flex justify-between py-1 border-b border-slate-100">
-                    <span>Kas Tunai di Brankas Bendahara</span>
-                    <span className="font-bold">{formatRupiah(stats.kasTunai)}</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-slate-100">
-                    <span>Rekening Giro BNI (8881-2072-09)</span>
-                    <span className="font-bold">{formatRupiah(stats.bankBni)}</span>
-                  </div>
-                  <div className="flex justify-between py-1.5 font-extrabold text-blue-900 bg-blue-50 px-2 rounded">
-                    <span>TOTAL ASET LANCAR</span>
-                    <span>{formatRupiah(stats.saldoAkhir)}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-bold text-slate-800 uppercase tracking-wider mb-2">KEWAJIBAN & SALDO DANA (PASIVA):</h4>
-                <div className="space-y-1.5 pl-3 border-l-2 border-teal-200">
-                  <div className="flex justify-between py-1 border-b border-slate-100">
-                    <span>Kewajiban / Hutang Operasional</span>
-                    <span className="font-bold text-slate-500">Rp 0 (Nihil)</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-slate-100">
-                    <span>Saldo Kas Terikat (Wakaf & Renovasi)</span>
-                    <span className="font-bold">{formatRupiah(10000000)}</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-slate-100">
-                    <span>Saldo Kas Bebas Operasional Jamaah</span>
-                    <span className="font-bold">{formatRupiah(stats.saldoAkhir - 10000000)}</span>
-                  </div>
-                  <div className="flex justify-between py-1.5 font-extrabold text-teal-900 bg-teal-50 px-2 rounded">
-                    <span>TOTAL KEWAJIBAN & EKUITAS DANA</span>
-                    <span>{formatRupiah(stats.saldoAkhir)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Legalitas & Penandatangan */}
-              <div className="pt-4 border-t border-slate-200 grid grid-cols-2 text-center text-[11px] text-slate-600">
-                <div>
-                  <p>Mengetahui,</p>
-                  <p className="font-bold text-slate-800 mt-8">Bapak Syaripudin</p>
-                  <p className="text-[10px] text-slate-500">Ketua DKM Masjid As Shomad</p>
-                </div>
-                <div>
-                  <p>Dibuat Oleh,</p>
-                  <p className="font-bold text-slate-800 mt-8">Bapak Imron Ardan</p>
-                  <p className="text-[10px] text-slate-500">Bendahara Masjid</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 4. REKONSILIASI BANK SECARA AKURAT */}
-      {subTab === 'rekonsiliasi' && (
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Rekonsiliasi Rekening Bank BNI</h3>
-              <p className="text-xs text-slate-500">
-                Mencocokkan catatan transaksi di aplikasi dengan rekening koran Bank BNI (8881-2072-09 a.n. Masjid As Shomad)
-              </p>
-            </div>
-            <div className="flex items-center space-x-2 text-xs">
-              <span className="px-2.5 py-1 bg-blue-50 text-blue-700 font-bold rounded-lg border border-blue-200">
-                Rek BNI: 8881-2072-09
-              </span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Sisi Mutasi Rekening Bank */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Mutasi Rekening Koran Bank BNI
-                </span>
-                <span className="text-[11px] text-slate-500">5 Transaksi Terakhir</span>
-              </div>
-
-              <div className="space-y-2">
-                {bankStatements.map((item) => (
-                  <div
-                    key={item.id}
-                    className={`p-3 rounded-xl border text-xs transition ${
-                      item.statusMatch
-                        ? 'bg-emerald-50/60 border-emerald-200'
-                        : 'bg-amber-50/60 border-amber-200'
-                    }`}
-                  >
-                    <div className="flex justify-between font-bold text-slate-800 mb-1">
-                      <span>{item.keterangan}</span>
-                      <span className={item.kredit > 0 ? 'text-emerald-700' : 'text-rose-700'}>
-                        {item.kredit > 0 ? `+ ${formatRupiah(item.kredit)}` : `- ${formatRupiah(item.debit)}`}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-[11px] text-slate-500">
-                      <span>Tgl: {formatDateIndo(item.tanggal)}</span>
-                      <span className="font-semibold text-slate-700">Saldo: {formatRupiah(item.saldo)}</span>
-                    </div>
-                    <div className="mt-2 pt-1 border-t border-slate-200/60 flex items-center justify-between text-[10px]">
-                      <span className={item.statusMatch ? 'text-emerald-700 font-bold flex items-center gap-1' : 'text-amber-700 font-bold flex items-center gap-1'}>
-                        {item.statusMatch ? (
-                          <>
-                            <CheckCircle2 className="w-3 h-3" /> Cocok dengan Jurnal
-                          </>
-                        ) : (
-                          <>
-                            <AlertCircle className="w-3 h-3" /> Belum Direkonsiliasi
-                          </>
-                        )}
-                      </span>
-                      {item.matchedTxId && <span className="text-slate-400 font-mono">Ref: {item.matchedTxId}</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Sisi Transaksi Aplikasi Yang Melibatkan Bank BNI / QRIS */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Catatan Transaksi di Aplikasi
-                </span>
-                <span className="text-[11px] text-slate-500">Koreksi & Status Cocok</span>
-              </div>
-
-              <div className="space-y-2">
-                {transactions
-                  .filter((t) => t.metode === 'bank_bni' || t.metode === 'qris')
-                  .map((t) => (
-                    <div
-                      key={t.id}
-                      className="p-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs transition shadow-2xs"
-                    >
-                      <div className="flex justify-between font-bold text-slate-900 mb-1">
-                        <span>{t.deskripsi}</span>
-                        <span className={t.jenis === 'pemasukan' ? 'text-emerald-700' : 'text-rose-700'}>
-                          {t.jenis === 'pemasukan' ? `+ ${formatRupiah(t.jumlah)}` : `- ${formatRupiah(t.jumlah)}`}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-[11px] text-slate-500 mb-2">
-                        <span>{formatDateIndo(t.tanggal)} ({t.metode === 'bank_bni' ? 'BNI' : 'QRIS'})</span>
-                        <span className="font-mono text-[10px] bg-slate-100 px-1.5 py-0.5 rounded">{t.id}</span>
-                      </div>
-
-                      {canManage && (
-                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                          <span className="text-[11px] text-slate-600">Verifikasi Kecocokan:</span>
-                          <button
-                            onClick={() => onToggleReconciled(t.id)}
-                            className={`px-3 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1 ${
-                              t.reconciled
-                                ? 'bg-emerald-700 text-white'
-                                : 'bg-slate-200 hover:bg-slate-300 text-slate-700'
-                            }`}
-                          >
-                            <CheckCircle2 className="w-3 h-3" />
-                            {t.reconciled ? 'Terverifikasi Cocok' : 'Tandai Cocok'}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-              </div>
-            </div>
           </div>
         </div>
       )}

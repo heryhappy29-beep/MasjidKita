@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { CheckCircle2, ShieldCheck, Info } from 'lucide-react';
 import { 
   MainTab, 
   UserRole, 
@@ -13,7 +14,6 @@ import {
   MosqueNews, 
   MosqueEvent, 
   GalleryItem, 
-  BankStatementItem,
   UserAccount
 } from './types';
 import { 
@@ -24,6 +24,7 @@ import {
 import { Header } from './components/Header';
 import { MosqueLogo } from './components/MosqueLogo';
 import { AuthModals } from './components/AuthModals';
+import { GoogleSheetsModal } from './components/GoogleSheetsModal';
 import { LaporanKeuanganView } from './components/LaporanKeuanganView';
 import { BabulKhairatView } from './components/BabulKhairatView';
 import { QurbanView } from './components/QurbanView';
@@ -61,26 +62,33 @@ export default function App() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
   const [isDeploymentGuideOpen, setIsDeploymentGuideOpen] = useState(false);
+  const [isGoogleSheetsOpen, setIsGoogleSheetsOpen] = useState(false);
+  const [sheetsPreselectedModule, setSheetsPreselectedModule] = useState<string | undefined>(undefined);
+  const [logoutNotice, setLogoutNotice] = useState<string | null>(null);
 
-  // 1. Data Keuangan Masjid
+  const handleOpenGoogleSheets = (moduleKey?: string) => {
+    setSheetsPreselectedModule(moduleKey);
+    setIsGoogleSheetsOpen(true);
+  };
+
+  // 1. Data Keuangan Masjid (Selalu dimuat dari localStorage, dipersist secara aman)
   const [transactions, setTransactions] = useState<FinancialTransaction[]>(() => {
     const saved = localStorage.getItem('as_shomad_transactions');
     if (saved) {
       try {
-        return JSON.parse(saved);
-      } catch (e) {}
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      } catch (e) {
+        console.error('Gagal membaca data transaksi dari localStorage:', e);
+      }
     }
+    // Simpan data awal ke localStorage agar langsung tersedia di storage browser
+    try {
+      localStorage.setItem('as_shomad_transactions', JSON.stringify(INITIAL_DATA.transactions));
+    } catch (e) {}
     return INITIAL_DATA.transactions;
-  });
-
-  const [reconciliations, setReconciliations] = useState<BankStatementItem[]>(() => {
-    const saved = localStorage.getItem('as_shomad_reconciliations');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {}
-    }
-    return INITIAL_DATA.reconciliations;
   });
 
   // 2. Data Babul Khairat
@@ -213,10 +221,6 @@ export default function App() {
   }, [transactions]);
 
   useEffect(() => {
-    localStorage.setItem('as_shomad_reconciliations', JSON.stringify(reconciliations));
-  }, [reconciliations]);
-
-  useEffect(() => {
     localStorage.setItem('as_shomad_families', JSON.stringify(families));
   }, [families]);
 
@@ -259,9 +263,27 @@ export default function App() {
   // Auth Handlers
   const handleLogin = (user: UserAccount) => {
     setCurrentUser(user);
+    setLogoutNotice(null);
   };
 
   const handleLogout = () => {
+    // Sinkronisasi data ke localStorage secara langsung untuk menjamin data transaksi tidak hilang
+    try {
+      localStorage.setItem('as_shomad_transactions', JSON.stringify(transactions));
+      localStorage.setItem('as_shomad_families', JSON.stringify(families));
+      localStorage.setItem('as_shomad_babul_payments', JSON.stringify(babulPayments));
+      localStorage.setItem('as_shomad_babul_claims', JSON.stringify(babulClaims));
+      localStorage.setItem('as_shomad_shohibul', JSON.stringify(shohibulList));
+      localStorage.setItem('as_shomad_installments', JSON.stringify(installments));
+      localStorage.setItem('as_shomad_qurban_stocks', JSON.stringify(qurbanStocks));
+      localStorage.setItem('as_shomad_infaq_records', JSON.stringify(infaqRecords));
+      localStorage.setItem('as_shomad_news', JSON.stringify(newsList));
+      localStorage.setItem('as_shomad_events', JSON.stringify(events));
+      localStorage.setItem('as_shomad_gallery', JSON.stringify(gallery));
+    } catch (e) {
+      console.error('Gagal menyimpan data saat logout:', e);
+    }
+
     const guestUser: UserAccount = {
       username: 'tamu',
       name: 'Jama’ah / Tamu',
@@ -270,6 +292,17 @@ export default function App() {
       roleLabel: 'Masyarakat / Jama’ah (Akses Publik Transparan)'
     };
     setCurrentUser(guestUser);
+    try {
+      localStorage.setItem('as_shomad_current_user', JSON.stringify(guestUser));
+    } catch (e) {}
+
+    // Tampilkan notifikasi konfirmasi bahwa data tetap tersimpan
+    setLogoutNotice(
+      `Berhasil logout. Anda kini di mode akses publik. Seluruh data transaksi (${transactions.length} transaksi) tetap tersimpan aman di aplikasi.`
+    );
+    setTimeout(() => {
+      setLogoutNotice(null);
+    }, 7000);
   };
 
   const handleChangePassword = (newPassword: string) => {
@@ -280,29 +313,39 @@ export default function App() {
     setCurrentUser({ ...currentUser, passwordHash: newPassword });
   };
 
-  // Keuangan Handlers
+  // Keuangan Handlers - Disimpan instan ke state & localStorage secara sinkron
   const handleAddTransaction = (t: Omit<FinancialTransaction, 'id'>) => {
     const newTx: FinancialTransaction = {
       ...t,
       id: `TX-${Date.now().toString().slice(-6)}`
     };
-    setTransactions([newTx, ...transactions]);
+    const updated = [newTx, ...transactions];
+    setTransactions(updated);
+    try {
+      localStorage.setItem('as_shomad_transactions', JSON.stringify(updated));
+    } catch (e) {
+      console.error('Gagal menyimpan transaksi ke localStorage:', e);
+    }
   };
 
   const handleEditTransaction = (t: FinancialTransaction) => {
-    setTransactions(transactions.map((item) => (item.id === t.id ? t : item)));
+    const updated = transactions.map((item) => (item.id === t.id ? t : item));
+    setTransactions(updated);
+    try {
+      localStorage.setItem('as_shomad_transactions', JSON.stringify(updated));
+    } catch (e) {
+      console.error('Gagal memperbarui transaksi di localStorage:', e);
+    }
   };
 
   const handleDeleteTransaction = (id: string) => {
-    setTransactions(transactions.filter((item) => item.id !== id));
-  };
-
-  const handleToggleReconciliation = (id: string) => {
-    setReconciliations(
-      reconciliations.map((item) =>
-        item.id === id ? { ...item, statusMatch: !item.statusMatch } : item
-      )
-    );
+    const updated = transactions.filter((item) => item.id !== id);
+    setTransactions(updated);
+    try {
+      localStorage.setItem('as_shomad_transactions', JSON.stringify(updated));
+    } catch (e) {
+      console.error('Gagal menghapus transaksi di localStorage:', e);
+    }
   };
 
   // Babul Khairat Handlers
@@ -354,16 +397,6 @@ export default function App() {
     setBabulClaims(babulClaims.filter((item) => item.id !== id));
   };
 
-  const handleResetBabulData = () => {
-    setFamilies(INITIAL_DATA.babulKhairatFamilies);
-    setBabulPayments(INITIAL_DATA.babulKhairatPayments);
-    setBabulClaims(INITIAL_DATA.babulKhairatClaims);
-    localStorage.setItem('as_shomad_families', JSON.stringify(INITIAL_DATA.babulKhairatFamilies));
-    localStorage.setItem('as_shomad_babul_payments', JSON.stringify(INITIAL_DATA.babulKhairatPayments));
-    localStorage.setItem('as_shomad_babul_claims', JSON.stringify(INITIAL_DATA.babulKhairatClaims));
-    localStorage.setItem('as_shomad_babul_saldo_awal', '15000000');
-  };
-
   // Qurban Handlers
   const handleAddShohibul = (s: Omit<ShohibulQurban, 'id'>) => {
     const newShohibul: ShohibulQurban = {
@@ -389,6 +422,10 @@ export default function App() {
     setInstallments([newInst, ...installments]);
   };
 
+  const handleEditInstallment = (inst: QurbanInstallment) => {
+    setInstallments(installments.map((item) => (item.id === inst.id ? inst : item)));
+  };
+
   const handleDeleteInstallment = (id: string) => {
     setInstallments(installments.filter((item) => item.id !== id));
   };
@@ -409,16 +446,6 @@ export default function App() {
     setQurbanStocks(qurbanStocks.filter((item) => item.id !== id));
   };
 
-  const handleResetQurbanData = () => {
-    setShohibulList(INITIAL_DATA.shohibulQurban);
-    setInstallments(INITIAL_DATA.qurbanInstallments);
-    setQurbanStocks(INITIAL_DATA.qurbanStocks);
-    localStorage.setItem('as_shomad_shohibul', JSON.stringify(INITIAL_DATA.shohibulQurban));
-    localStorage.setItem('as_shomad_installments', JSON.stringify(INITIAL_DATA.qurbanInstallments));
-    localStorage.setItem('as_shomad_qurban_stocks', JSON.stringify(INITIAL_DATA.qurbanStocks));
-    localStorage.setItem('as_shomad_qurban_v2', 'true');
-  };
-
   // Infaq Handlers
   const handleAddInfaqRecord = (r: Omit<InfaqRecord, 'id'>) => {
     const newRec: InfaqRecord = {
@@ -426,6 +453,10 @@ export default function App() {
       id: `INF-${Date.now().toString().slice(-5)}`
     };
     setInfaqRecords([newRec, ...infaqRecords]);
+  };
+
+  const handleEditInfaqRecord = (r: InfaqRecord) => {
+    setInfaqRecords(infaqRecords.map((item) => (item.id === r.id ? r : item)));
   };
 
   const handleDeleteInfaqRecord = (id: string) => {
@@ -473,6 +504,10 @@ export default function App() {
     setGallery([newG, ...gallery]);
   };
 
+  const handleEditGallery = (g: GalleryItem) => {
+    setGallery(gallery.map((item) => (item.id === g.id ? g : item)));
+  };
+
   const handleDeleteGallery = (id: string) => {
     setGallery(gallery.filter((item) => item.id !== id));
   };
@@ -486,8 +521,27 @@ export default function App() {
         currentUser={currentUser}
         onOpenLogin={() => setIsLoginModalOpen(true)}
         onOpenChangePassword={() => setIsChangePasswordModalOpen(true)}
+        onOpenGoogleSheets={() => handleOpenGoogleSheets()}
         onLogout={handleLogout}
       />
+
+      {/* NOTIFIKASI LOGOUT / STATUS PERSISTENSI */}
+      {logoutNotice && (
+        <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+          <div className="bg-emerald-800 text-white px-4 py-3 rounded-2xl text-xs font-semibold flex items-center justify-between shadow-md border border-emerald-600 animate-in fade-in slide-in-from-top-2">
+            <div className="flex items-center space-x-2.5">
+              <CheckCircle2 className="w-5 h-5 text-emerald-300 shrink-0" />
+              <span>{logoutNotice}</span>
+            </div>
+            <button
+              onClick={() => setLogoutNotice(null)}
+              className="text-emerald-200 hover:text-white p-1 rounded-lg hover:bg-emerald-700 transition"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* KONTEN UTAMA SESUAI 5 MENU */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
@@ -497,10 +551,9 @@ export default function App() {
             onAddTransaction={handleAddTransaction}
             onEditTransaction={handleEditTransaction}
             onDeleteTransaction={handleDeleteTransaction}
-            bankStatements={reconciliations}
-            onToggleReconciled={handleToggleReconciliation}
             currentUserRole={currentUser.role}
             onOpenLogin={() => setIsLoginModalOpen(true)}
+            onOpenGoogleSheets={() => handleOpenGoogleSheets('Laporan_Kas')}
           />
         )}
 
@@ -518,7 +571,6 @@ export default function App() {
             onAddClaim={handleAddBabulClaim}
             onEditClaim={handleEditBabulClaim}
             onDeleteClaim={handleDeleteBabulClaim}
-            onResetBabulData={handleResetBabulData}
             currentUserRole={currentUser.role}
             onOpenLogin={() => setIsLoginModalOpen(true)}
           />
@@ -532,6 +584,7 @@ export default function App() {
             onDeleteShohibul={handleDeleteShohibul}
             installments={installments}
             onAddInstallment={handleAddInstallment}
+            onEditInstallment={handleEditInstallment}
             onDeleteInstallment={handleDeleteInstallment}
             stocks={qurbanStocks}
             onAddStock={handleAddStock}
@@ -539,7 +592,6 @@ export default function App() {
             onDeleteStock={handleDeleteStock}
             currentUserRole={currentUser.role}
             onOpenLogin={() => setIsLoginModalOpen(true)}
-            onResetQurbanData={handleResetQurbanData}
           />
         )}
 
@@ -547,6 +599,7 @@ export default function App() {
           <InfaqSadakahView
             records={infaqRecords}
             onAddRecord={handleAddInfaqRecord}
+            onEditRecord={handleEditInfaqRecord}
             onDeleteRecord={handleDeleteInfaqRecord}
             currentUserRole={currentUser.role}
           />
@@ -564,6 +617,7 @@ export default function App() {
             onDeleteEvent={handleDeleteEvent}
             gallery={gallery}
             onAddGallery={handleAddGallery}
+            onEditGallery={handleEditGallery}
             onDeleteGallery={handleDeleteGallery}
             currentUserRole={currentUser.role}
             onOpenLogin={() => setIsLoginModalOpen(true)}
@@ -602,6 +656,22 @@ export default function App() {
         currentUser={currentUser}
         isGasGuideOpen={isDeploymentGuideOpen}
         onCloseGasGuide={() => setIsDeploymentGuideOpen(false)}
+      />
+
+      {/* GOOGLE SHEETS MODAL */}
+      <GoogleSheetsModal
+        isOpen={isGoogleSheetsOpen}
+        onClose={() => setIsGoogleSheetsOpen(false)}
+        data={{
+          transactions,
+          shohibulList,
+          installments,
+          qurbanStocks,
+          infaqRecords,
+          families,
+          claims: babulClaims
+        }}
+        preselectedModule={sheetsPreselectedModule}
       />
     </div>
   );
