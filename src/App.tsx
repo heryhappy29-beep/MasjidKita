@@ -31,6 +31,38 @@ import { QurbanView } from './components/QurbanView';
 import { InfaqSadakahView } from './components/InfaqSadakahView';
 import { InformasiKegiatanView } from './components/InformasiKegiatanView';
 
+function loadFromStorage<T>(key: string, defaultData: T): T {
+  try {
+    const saved = localStorage.getItem(key);
+    if (saved !== null) {
+      const parsed = JSON.parse(saved);
+      // Data valid ditemukan di storage; tetap gunakan meski berupa array kosong []
+      if (Array.isArray(defaultData)) {
+        if (Array.isArray(parsed)) {
+          return parsed as unknown as T;
+        }
+      } else if (parsed !== null && typeof parsed === 'object') {
+        return parsed as unknown as T;
+      }
+    }
+  } catch (e) {
+    console.error(`Gagal membaca ${key} dari localStorage:`, e);
+  }
+  // Simpan data awal hanya jika key belum pernah ada sama sekali di localStorage
+  try {
+    localStorage.setItem(key, JSON.stringify(defaultData));
+  } catch (e) {}
+  return defaultData;
+}
+
+function saveToStorage<T>(key: string, data: T): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (e) {
+    console.error(`Gagal menyimpan ${key} ke localStorage:`, e);
+  }
+}
+
 export default function App() {
   // Navigation State
   const [activeTab, setActiveTab] = useState<MainTab>('laporan_keuangan');
@@ -71,141 +103,54 @@ export default function App() {
     setIsGoogleSheetsOpen(true);
   };
 
-  // 1. Data Keuangan Masjid (Selalu dimuat dari localStorage, dipersist secara aman)
-  const [transactions, setTransactions] = useState<FinancialTransaction[]>(() => {
-    const saved = localStorage.getItem('as_shomad_transactions');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
-      } catch (e) {
-        console.error('Gagal membaca data transaksi dari localStorage:', e);
-      }
-    }
-    // Simpan data awal ke localStorage agar langsung tersedia di storage browser
-    try {
-      localStorage.setItem('as_shomad_transactions', JSON.stringify(INITIAL_DATA.transactions));
-    } catch (e) {}
-    return INITIAL_DATA.transactions;
-  });
+  // 1. Data Keuangan Masjid (Selalu dimuat dari localStorage, dipersist secara aman bahkan jika array kosong)
+  const [transactions, setTransactions] = useState<FinancialTransaction[]>(() =>
+    loadFromStorage('as_shomad_transactions', INITIAL_DATA.transactions)
+  );
 
   // 2. Data Babul Khairat
-  const [families, setFamilies] = useState<BabulKhairatFamily[]>(() => {
-    const saved = localStorage.getItem('as_shomad_families');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch (e) {}
-    }
-    return INITIAL_DATA.babulKhairatFamilies;
-  });
+  const [families, setFamilies] = useState<BabulKhairatFamily[]>(() =>
+    loadFromStorage('as_shomad_families', INITIAL_DATA.babulKhairatFamilies)
+  );
 
-  const [babulPayments, setBabulPayments] = useState<BabulKhairatPayment[]>(() => {
-    const saved = localStorage.getItem('as_shomad_babul_payments');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch (e) {}
-    }
-    return INITIAL_DATA.babulKhairatPayments;
-  });
+  const [babulPayments, setBabulPayments] = useState<BabulKhairatPayment[]>(() =>
+    loadFromStorage('as_shomad_babul_payments', INITIAL_DATA.babulKhairatPayments)
+  );
 
-  const [babulClaims, setBabulClaims] = useState<BabulKhairatClaim[]>(() => {
-    const saved = localStorage.getItem('as_shomad_babul_claims');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch (e) {}
-    }
-    return INITIAL_DATA.babulKhairatClaims;
-  });
+  const [babulClaims, setBabulClaims] = useState<BabulKhairatClaim[]>(() =>
+    loadFromStorage('as_shomad_babul_claims', INITIAL_DATA.babulKhairatClaims)
+  );
 
   // 3. Data Qurban
-  const [shohibulList, setShohibulList] = useState<ShohibulQurban[]>(() => {
-    const version = localStorage.getItem('as_shomad_qurban_v2');
-    const saved = localStorage.getItem('as_shomad_shohibul');
-    if (saved && version === 'true') {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch (e) {}
-    }
-    localStorage.setItem('as_shomad_qurban_v2', 'true');
-    localStorage.setItem('as_shomad_shohibul', JSON.stringify(INITIAL_DATA.shohibulQurban));
-    return INITIAL_DATA.shohibulQurban;
-  });
+  const [shohibulList, setShohibulList] = useState<ShohibulQurban[]>(() =>
+    loadFromStorage('as_shomad_shohibul', INITIAL_DATA.shohibulQurban)
+  );
 
-  const [installments, setInstallments] = useState<QurbanInstallment[]>(() => {
-    const version = localStorage.getItem('as_shomad_qurban_v2');
-    const saved = localStorage.getItem('as_shomad_installments');
-    if (saved && version === 'true') {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch (e) {}
-    }
-    localStorage.setItem('as_shomad_qurban_v2', 'true');
-    localStorage.setItem('as_shomad_installments', JSON.stringify(INITIAL_DATA.qurbanInstallments));
-    return INITIAL_DATA.qurbanInstallments;
-  });
+  const [installments, setInstallments] = useState<QurbanInstallment[]>(() =>
+    loadFromStorage('as_shomad_installments', INITIAL_DATA.qurbanInstallments)
+  );
 
-  const [qurbanStocks, setQurbanStocks] = useState<QurbanStock[]>(() => {
-    const saved = localStorage.getItem('as_shomad_qurban_stocks');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch (e) {}
-    }
-    return INITIAL_DATA.qurbanStocks;
-  });
+  const [qurbanStocks, setQurbanStocks] = useState<QurbanStock[]>(() =>
+    loadFromStorage('as_shomad_qurban_stocks', INITIAL_DATA.qurbanStocks)
+  );
 
   // 4. Data Infaq & Sadakah
-  const [infaqRecords, setInfaqRecords] = useState<InfaqRecord[]>(() => {
-    const saved = localStorage.getItem('as_shomad_infaq_records');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {}
-    }
-    return INITIAL_DATA.infaqRecords;
-  });
+  const [infaqRecords, setInfaqRecords] = useState<InfaqRecord[]>(() =>
+    loadFromStorage('as_shomad_infaq_records', INITIAL_DATA.infaqRecords)
+  );
 
   // 5. Data Informasi & Kegiatan
-  const [newsList, setNewsList] = useState<MosqueNews[]>(() => {
-    const saved = localStorage.getItem('as_shomad_news');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {}
-    }
-    return INITIAL_DATA.news;
-  });
+  const [newsList, setNewsList] = useState<MosqueNews[]>(() =>
+    loadFromStorage('as_shomad_news', INITIAL_DATA.news)
+  );
 
-  const [events, setEvents] = useState<MosqueEvent[]>(() => {
-    const saved = localStorage.getItem('as_shomad_events');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {}
-    }
-    return INITIAL_DATA.events;
-  });
+  const [events, setEvents] = useState<MosqueEvent[]>(() =>
+    loadFromStorage('as_shomad_events', INITIAL_DATA.events)
+  );
 
-  const [gallery, setGallery] = useState<GalleryItem[]>(() => {
-    const saved = localStorage.getItem('as_shomad_gallery');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {}
-    }
-    return INITIAL_DATA.gallery;
-  });
+  const [gallery, setGallery] = useState<GalleryItem[]>(() =>
+    loadFromStorage('as_shomad_gallery', INITIAL_DATA.gallery)
+  );
 
   // Persistence to LocalStorage
   useEffect(() => {
@@ -321,31 +266,19 @@ export default function App() {
     };
     const updated = [newTx, ...transactions];
     setTransactions(updated);
-    try {
-      localStorage.setItem('as_shomad_transactions', JSON.stringify(updated));
-    } catch (e) {
-      console.error('Gagal menyimpan transaksi ke localStorage:', e);
-    }
+    saveToStorage('as_shomad_transactions', updated);
   };
 
   const handleEditTransaction = (t: FinancialTransaction) => {
     const updated = transactions.map((item) => (item.id === t.id ? t : item));
     setTransactions(updated);
-    try {
-      localStorage.setItem('as_shomad_transactions', JSON.stringify(updated));
-    } catch (e) {
-      console.error('Gagal memperbarui transaksi di localStorage:', e);
-    }
+    saveToStorage('as_shomad_transactions', updated);
   };
 
   const handleDeleteTransaction = (id: string) => {
     const updated = transactions.filter((item) => item.id !== id);
     setTransactions(updated);
-    try {
-      localStorage.setItem('as_shomad_transactions', JSON.stringify(updated));
-    } catch (e) {
-      console.error('Gagal menghapus transaksi di localStorage:', e);
-    }
+    saveToStorage('as_shomad_transactions', updated);
   };
 
   // Babul Khairat Handlers
@@ -354,15 +287,26 @@ export default function App() {
       ...f,
       id: `BK-${Date.now().toString().slice(-5)}`
     };
-    setFamilies([newFamily, ...families]);
+    const updated = [newFamily, ...families];
+    setFamilies(updated);
+    saveToStorage('as_shomad_families', updated);
   };
 
   const handleEditFamily = (f: BabulKhairatFamily) => {
-    setFamilies(families.map((item) => (item.id === f.id ? f : item)));
+    const updated = families.map((item) => (item.id === f.id ? f : item));
+    setFamilies(updated);
+    saveToStorage('as_shomad_families', updated);
   };
 
   const handleDeleteFamily = (id: string) => {
-    setFamilies(families.filter((item) => item.id !== id));
+    const updated = families.filter((item) => item.id !== id);
+    setFamilies(updated);
+    saveToStorage('as_shomad_families', updated);
+
+    // Hapus juga iuran terkait KK ini agar data tetap konsisten
+    const updatedPayments = babulPayments.filter((p) => p.familyId !== id);
+    setBabulPayments(updatedPayments);
+    saveToStorage('as_shomad_babul_payments', updatedPayments);
   };
 
   const handleAddBabulPayment = (p: Omit<BabulKhairatPayment, 'id'>) => {
@@ -370,15 +314,21 @@ export default function App() {
       ...p,
       id: `PAY-${Date.now().toString().slice(-5)}`
     };
-    setBabulPayments([newPayment, ...babulPayments]);
+    const updated = [newPayment, ...babulPayments];
+    setBabulPayments(updated);
+    saveToStorage('as_shomad_babul_payments', updated);
   };
 
   const handleEditBabulPayment = (p: BabulKhairatPayment) => {
-    setBabulPayments(babulPayments.map((item) => (item.id === p.id ? p : item)));
+    const updated = babulPayments.map((item) => (item.id === p.id ? p : item));
+    setBabulPayments(updated);
+    saveToStorage('as_shomad_babul_payments', updated);
   };
 
   const handleDeleteBabulPayment = (id: string) => {
-    setBabulPayments(babulPayments.filter((item) => item.id !== id));
+    const updated = babulPayments.filter((item) => item.id !== id);
+    setBabulPayments(updated);
+    saveToStorage('as_shomad_babul_payments', updated);
   };
 
   const handleAddBabulClaim = (c: Omit<BabulKhairatClaim, 'id'>) => {
@@ -386,15 +336,21 @@ export default function App() {
       ...c,
       id: `CLM-${Date.now().toString().slice(-5)}`
     };
-    setBabulClaims([newClaim, ...babulClaims]);
+    const updated = [newClaim, ...babulClaims];
+    setBabulClaims(updated);
+    saveToStorage('as_shomad_babul_claims', updated);
   };
 
   const handleEditBabulClaim = (c: BabulKhairatClaim) => {
-    setBabulClaims(babulClaims.map((item) => (item.id === c.id ? c : item)));
+    const updated = babulClaims.map((item) => (item.id === c.id ? c : item));
+    setBabulClaims(updated);
+    saveToStorage('as_shomad_babul_claims', updated);
   };
 
   const handleDeleteBabulClaim = (id: string) => {
-    setBabulClaims(babulClaims.filter((item) => item.id !== id));
+    const updated = babulClaims.filter((item) => item.id !== id);
+    setBabulClaims(updated);
+    saveToStorage('as_shomad_babul_claims', updated);
   };
 
   // Qurban Handlers
@@ -403,15 +359,26 @@ export default function App() {
       ...s,
       id: `SH-${Date.now().toString().slice(-5)}`
     };
-    setShohibulList([newShohibul, ...shohibulList]);
+    const updated = [newShohibul, ...shohibulList];
+    setShohibulList(updated);
+    saveToStorage('as_shomad_shohibul', updated);
   };
 
   const handleEditShohibul = (s: ShohibulQurban) => {
-    setShohibulList(shohibulList.map((item) => (item.id === s.id ? s : item)));
+    const updated = shohibulList.map((item) => (item.id === s.id ? s : item));
+    setShohibulList(updated);
+    saveToStorage('as_shomad_shohibul', updated);
   };
 
   const handleDeleteShohibul = (id: string) => {
-    setShohibulList(shohibulList.filter((item) => item.id !== id));
+    const updated = shohibulList.filter((item) => item.id !== id);
+    setShohibulList(updated);
+    saveToStorage('as_shomad_shohibul', updated);
+
+    // Hapus juga mutasi cicilan milik shohibul ini agar tidak tertinggal data yatim
+    const updatedInstallments = installments.filter((inst) => inst.shohibulId !== id);
+    setInstallments(updatedInstallments);
+    saveToStorage('as_shomad_installments', updatedInstallments);
   };
 
   const handleAddInstallment = (inst: Omit<QurbanInstallment, 'id'>) => {
@@ -419,15 +386,21 @@ export default function App() {
       ...inst,
       id: `INST-${Date.now().toString().slice(-5)}`
     };
-    setInstallments([newInst, ...installments]);
+    const updated = [newInst, ...installments];
+    setInstallments(updated);
+    saveToStorage('as_shomad_installments', updated);
   };
 
   const handleEditInstallment = (inst: QurbanInstallment) => {
-    setInstallments(installments.map((item) => (item.id === inst.id ? inst : item)));
+    const updated = installments.map((item) => (item.id === inst.id ? inst : item));
+    setInstallments(updated);
+    saveToStorage('as_shomad_installments', updated);
   };
 
   const handleDeleteInstallment = (id: string) => {
-    setInstallments(installments.filter((item) => item.id !== id));
+    const updated = installments.filter((item) => item.id !== id);
+    setInstallments(updated);
+    saveToStorage('as_shomad_installments', updated);
   };
 
   const handleAddStock = (s: Omit<QurbanStock, 'id'>) => {
@@ -435,15 +408,21 @@ export default function App() {
       ...s,
       id: `STK-${Date.now().toString().slice(-5)}`
     };
-    setQurbanStocks([...qurbanStocks, newStock]);
+    const updated = [...qurbanStocks, newStock];
+    setQurbanStocks(updated);
+    saveToStorage('as_shomad_qurban_stocks', updated);
   };
 
   const handleEditStock = (s: QurbanStock) => {
-    setQurbanStocks(qurbanStocks.map((item) => (item.id === s.id ? s : item)));
+    const updated = qurbanStocks.map((item) => (item.id === s.id ? s : item));
+    setQurbanStocks(updated);
+    saveToStorage('as_shomad_qurban_stocks', updated);
   };
 
   const handleDeleteStock = (id: string) => {
-    setQurbanStocks(qurbanStocks.filter((item) => item.id !== id));
+    const updated = qurbanStocks.filter((item) => item.id !== id);
+    setQurbanStocks(updated);
+    saveToStorage('as_shomad_qurban_stocks', updated);
   };
 
   // Infaq Handlers
@@ -452,15 +431,21 @@ export default function App() {
       ...r,
       id: `INF-${Date.now().toString().slice(-5)}`
     };
-    setInfaqRecords([newRec, ...infaqRecords]);
+    const updated = [newRec, ...infaqRecords];
+    setInfaqRecords(updated);
+    saveToStorage('as_shomad_infaq_records', updated);
   };
 
   const handleEditInfaqRecord = (r: InfaqRecord) => {
-    setInfaqRecords(infaqRecords.map((item) => (item.id === r.id ? r : item)));
+    const updated = infaqRecords.map((item) => (item.id === r.id ? r : item));
+    setInfaqRecords(updated);
+    saveToStorage('as_shomad_infaq_records', updated);
   };
 
   const handleDeleteInfaqRecord = (id: string) => {
-    setInfaqRecords(infaqRecords.filter((item) => item.id !== id));
+    const updated = infaqRecords.filter((item) => item.id !== id);
+    setInfaqRecords(updated);
+    saveToStorage('as_shomad_infaq_records', updated);
   };
 
   // Informasi Handlers
@@ -469,15 +454,21 @@ export default function App() {
       ...n,
       id: `NWS-${Date.now().toString().slice(-5)}`
     };
-    setNewsList([newNews, ...newsList]);
+    const updated = [newNews, ...newsList];
+    setNewsList(updated);
+    saveToStorage('as_shomad_news', updated);
   };
 
   const handleEditNews = (n: MosqueNews) => {
-    setNewsList(newsList.map((item) => (item.id === n.id ? n : item)));
+    const updated = newsList.map((item) => (item.id === n.id ? n : item));
+    setNewsList(updated);
+    saveToStorage('as_shomad_news', updated);
   };
 
   const handleDeleteNews = (id: string) => {
-    setNewsList(newsList.filter((item) => item.id !== id));
+    const updated = newsList.filter((item) => item.id !== id);
+    setNewsList(updated);
+    saveToStorage('as_shomad_news', updated);
   };
 
   const handleAddEvent = (e: Omit<MosqueEvent, 'id'>) => {
@@ -485,15 +476,21 @@ export default function App() {
       ...e,
       id: `EV-${Date.now().toString().slice(-5)}`
     };
-    setEvents([newEv, ...events]);
+    const updated = [newEv, ...events];
+    setEvents(updated);
+    saveToStorage('as_shomad_events', updated);
   };
 
   const handleEditEvent = (e: MosqueEvent) => {
-    setEvents(events.map((item) => (item.id === e.id ? e : item)));
+    const updated = events.map((item) => (item.id === e.id ? e : item));
+    setEvents(updated);
+    saveToStorage('as_shomad_events', updated);
   };
 
   const handleDeleteEvent = (id: string) => {
-    setEvents(events.filter((item) => item.id !== id));
+    const updated = events.filter((item) => item.id !== id);
+    setEvents(updated);
+    saveToStorage('as_shomad_events', updated);
   };
 
   const handleAddGallery = (g: Omit<GalleryItem, 'id'>) => {
@@ -501,15 +498,21 @@ export default function App() {
       ...g,
       id: `GAL-${Date.now().toString().slice(-5)}`
     };
-    setGallery([newG, ...gallery]);
+    const updated = [newG, ...gallery];
+    setGallery(updated);
+    saveToStorage('as_shomad_gallery', updated);
   };
 
   const handleEditGallery = (g: GalleryItem) => {
-    setGallery(gallery.map((item) => (item.id === g.id ? g : item)));
+    const updated = gallery.map((item) => (item.id === g.id ? g : item));
+    setGallery(updated);
+    saveToStorage('as_shomad_gallery', updated);
   };
 
   const handleDeleteGallery = (id: string) => {
-    setGallery(gallery.filter((item) => item.id !== id));
+    const updated = gallery.filter((item) => item.id !== id);
+    setGallery(updated);
+    saveToStorage('as_shomad_gallery', updated);
   };
 
   return (
