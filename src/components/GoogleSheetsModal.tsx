@@ -15,7 +15,11 @@ import {
   FolderOpen,
   Eye,
   Calendar,
-  Check
+  Check,
+  Copy,
+  Download,
+  ShieldAlert,
+  HelpCircle
 } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { 
@@ -33,7 +37,8 @@ import {
   readSheetData,
   DriveSpreadsheetItem,
   SpreadsheetDetails,
-  extractSpreadsheetId
+  extractSpreadsheetId,
+  prepareSheetData
 } from '../services/googleSheetsService';
 
 interface GoogleSheetsModalProps {
@@ -52,7 +57,9 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
   const [googleUser, setGoogleUser] = useState<User | null>(null);
   const [hasToken, setHasToken] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
-  const [activeTab, setActiveTab] = useState<'create' | 'sync_existing' | 'preview'>('create');
+  const [activeTab, setActiveTab] = useState<'create' | 'sync_existing' | 'preview' | 'export_csv'>('create');
+  const [unauthorizedDomain, setUnauthorizedDomain] = useState<string | null>(null);
+  const [copiedDomain, setCopiedDomain] = useState(false);
 
   // New Spreadsheet State
   const [newTitle, setNewTitle] = useState('Manajemen Keuangan Masjid As Shomad 1446 H');
@@ -170,15 +177,24 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
     }
   };
 
+  // Copy unauthorized domain utility
+  const handleCopyDomain = (domainToCopy: string) => {
+    navigator.clipboard.writeText(domainToCopy);
+    setCopiedDomain(true);
+    setTimeout(() => setCopiedDomain(false), 3000);
+  };
+
   // Google Sign In handler
   const handleGoogleSignIn = async () => {
     setIsSigningIn(true);
     setErrorMessage(null);
+    setUnauthorizedDomain(null);
     try {
       const result = await googleSignIn();
       if (result) {
         setGoogleUser(result.user);
         setHasToken(true);
+        setUnauthorizedDomain(null);
         setSuccessMessage('Berhasil terhubung dengan Google Sheets & Google Drive.');
         setTimeout(() => setSuccessMessage(null), 4000);
       }
@@ -190,10 +206,73 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
         // Abaikan penutupan manual oleh user
         return;
       }
+      if (code === 'auth/unauthorized-domain' || msg.includes('unauthorized-domain')) {
+        const host = e?.domain || (typeof window !== 'undefined' ? window.location.hostname : 'domain aplikasi');
+        setUnauthorizedDomain(host);
+        setErrorMessage(
+          `Domain "${host}" belum diotorisasi di Firebase Authentication. Tambahkan domain ini ke daftar Authorized Domains di Firebase Console agar login Google berhasil.`
+        );
+        return;
+      }
       setErrorMessage(msg || 'Gagal masuk dengan Google.');
     } finally {
       setIsSigningIn(false);
     }
+  };
+
+  // Direct CSV Exporters (Works immediately without requiring Firebase or Google OAuth)
+  const handleDownloadCSV = (moduleKey: string) => {
+    try {
+      const prepared = prepareSheetData(data);
+      const bundle = prepared[moduleKey];
+      if (!bundle) {
+        setErrorMessage('Data lembar kerja tidak ditemukan.');
+        return;
+      }
+
+      const escapeCSV = (val: any) => {
+        if (val === null || val === undefined) return '""';
+        const str = String(val).replace(/"/g, '""');
+        return `"${str}"`;
+      };
+
+      const csvRows = [
+        bundle.headers.map(escapeCSV).join(','),
+        ...bundle.rows.map((row) => row.map(escapeCSV).join(','))
+      ];
+
+      // Add UTF-8 BOM so Excel & Google Sheets display Indonesian characters and formatting correctly
+      const csvContent = '\uFEFF' + csvRows.join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      const fileName = `${bundle.title.replace(/[\s/]+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`;
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setErrorMessage('Gagal mengunduh CSV: ' + err.message);
+    }
+  };
+
+  const handleDownloadAllSelectedCSV = () => {
+    const activeKeys = Object.keys(selectedModules).filter((k) => selectedModules[k]);
+    if (activeKeys.length === 0) {
+      setErrorMessage('Pilih minimal 1 lembar data untuk diunduh.');
+      return;
+    }
+
+    activeKeys.forEach((key, index) => {
+      setTimeout(() => {
+        handleDownloadCSV(key);
+      }, index * 200);
+    });
+
+    setSuccessMessage(`Berhasil memulai unduhan ${activeKeys.length} berkas CSV. Anda dapat langsung mengimpor file ini ke Google Sheets atau membukanya di Excel!`);
+    setTimeout(() => setSuccessMessage(null), 5000);
   };
 
   const handleGoogleLogout = async () => {
@@ -485,7 +564,100 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
               <span>Tinjau Data Sheets</span>
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('export_csv')}
+            className={`py-3 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition cursor-pointer ${
+              activeTab === 'export_csv'
+                ? 'border-emerald-700 text-emerald-800'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <Download className="w-4 h-4" />
+            <span>Ekspor File CSV / Excel</span>
+          </button>
         </div>
+
+        {/* Special Diagnostic Helper for Firebase Unauthorized Domain */}
+        {unauthorizedDomain && (
+          <div className="mx-6 mt-4 p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl text-xs text-amber-950 space-y-3 shadow-xs">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl bg-amber-200/90 border border-amber-400 flex items-center justify-center shrink-0 text-amber-900 mt-0.5">
+                <ShieldAlert className="w-5 h-5" />
+              </div>
+              <div className="flex-1 space-y-1">
+                <h4 className="font-extrabold text-sm text-amber-950">
+                  Perlu Menambahkan Domain di Firebase Console
+                </h4>
+                <p className="text-amber-800 leading-relaxed text-xs">
+                  Firebase Authentication membatasi login akun Google hanya pada domain yang telah disetujui. Agar tombol <strong>Hubungkan Akun Google</strong> dapat berjalan di URL ini, domain aplikasi perlu didaftarkan sekali di Firebase Console.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-white p-3 rounded-xl border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2 font-mono text-[11px] text-slate-800 break-all bg-slate-100 px-2.5 py-1.5 rounded-lg border border-slate-200">
+                <span className="font-semibold text-slate-500 select-none">Domain Anda:</span>
+                <span className="font-bold text-emerald-900">{unauthorizedDomain}</span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleCopyDomain(unauthorizedDomain)}
+                  className="px-3 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-950 rounded-lg font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  {copiedDomain ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>Tersalin!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5 text-amber-900" />
+                      <span>Salin Domain</span>
+                    </>
+                  )}
+                </button>
+                <a
+                  href="https://console.firebase.google.com/project/gen-lang-client-0959467835/authentication/settings"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3 py-1.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 transition"
+                >
+                  <span>Buka Firebase Console</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            </div>
+
+            <div className="text-[11px] text-amber-900 bg-amber-100/70 p-3 rounded-xl space-y-1.5">
+              <span className="font-bold block">3 Langkah Cepat Mengaktifkan:</span>
+              <ol className="list-decimal list-inside space-y-1 text-amber-900/90 pl-1">
+                <li>Klik tombol <strong>Buka Firebase Console</strong> di atas (langsung membuka tab <em>Authentication &gt; Settings</em>).</li>
+                <li>Gulir ke bawah ke bagian <strong>Authorized domains</strong>, klik <strong>Add domain</strong>, lalu tempelkan domain yang disalin di atas (atau masukkan <code>run.app</code>).</li>
+                <li>Klik <strong>Add</strong>. Setelah itu kembali ke sini dan klik kembali tombol <strong>Hubungkan Akun Google</strong>.</li>
+              </ol>
+            </div>
+
+            <div className="pt-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-t border-amber-200/80 text-[11px]">
+              <span className="text-amber-800">
+                Ingin langsung membuka data di Google Sheets tanpa harus menyetel Firebase?
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setUnauthorizedDomain(null);
+                  setActiveTab('export_csv');
+                }}
+                className="font-bold text-emerald-800 hover:text-emerald-950 underline flex items-center gap-1 cursor-pointer self-start sm:self-auto"
+              >
+                <span>Pakai Ekspor File Langsung (CSV / Excel)</span>
+                <Download className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Feedback Alert */}
         {successMessage && (
@@ -495,7 +667,7 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
           </div>
         )}
 
-        {errorMessage && (
+        {errorMessage && !unauthorizedDomain && (
           <div className="mx-6 mt-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start gap-2">
             <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
             <div className="flex-1 font-medium">{errorMessage}</div>
@@ -835,6 +1007,94 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
                   <span>Buka di Google Sheets Lengkap</span>
                   <ExternalLink className="w-3.5 h-3.5" />
                 </a>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: EKSPOR FILE CSV / EXCEL LANGSUNG (TANPA PERLU LOGIN / OTORISASI DOMAIN) */}
+          {activeTab === 'export_csv' && (
+            <div className="space-y-5 text-xs">
+              <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <div className="font-extrabold text-sm text-emerald-950 flex items-center gap-2">
+                    <Download className="w-4 h-4 text-emerald-700" />
+                    <span>Ekspor File Langsung (CSV &amp; Excel)</span>
+                  </div>
+                  <p className="text-emerald-800 text-xs mt-1">
+                    Unduh file data masjid secara instan tanpa perlu akun Google atau otorisasi domain Firebase. File CSV ini sudah diformat dengan UTF-8 BOM agar angka, mata uang, dan teks Indonesia terbaca rapi di <strong>Google Sheets</strong> dan <strong>Microsoft Excel</strong>.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDownloadAllSelectedCSV}
+                  className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-sm flex items-center gap-2 shrink-0 cursor-pointer self-stretch sm:self-auto justify-center"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Unduh Semua ({Object.keys(selectedModules).filter(k => selectedModules[k]).length} Berkas)</span>
+                </button>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-2">
+                  Pilih Lembar Data yang Ingin Diunduh:
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {[
+                    { id: 'Laporan_Kas', title: 'Buku Kas Keuangan', count: data.transactions.length, desc: 'Pemasukan, pengeluaran & saldo kas masjid' },
+                    { id: 'Shohibul_Qurban', title: 'Peserta Shohibul Qurban', count: data.shohibulList.length, desc: 'Data shohibul, jenis hewan, status bayar' },
+                    { id: 'Cicilan_Qurban', title: 'Setoran & Cicilan Qurban', count: data.installments.length, desc: 'Riwayat pembayaran, kuitansi, tanggal' },
+                    { id: 'Stok_Hewan_Qurban', title: 'Stok & Harga Hewan', count: data.qurbanStocks.length, desc: 'Kuota hewan qurban dan harga pasar' },
+                    { id: 'Infaq_Sedekah', title: 'Infaq, Sedekah & Donatur', count: data.infaqRecords.length, desc: 'Infaq Jumat, sedekah subuh, renovasi' },
+                    { id: 'Babul_Khairat', title: 'Babul Khairat (Sosial)', count: (data.families || []).length, desc: 'Anggota keluarga, iuran bulanan & klaim' }
+                  ].map((item) => (
+                    <div 
+                      key={item.id}
+                      className="p-3 bg-white border border-slate-200 rounded-xl hover:border-emerald-300 transition flex items-center justify-between gap-3"
+                    >
+                      <div className="flex items-start gap-2.5">
+                        <input
+                          type="checkbox"
+                          id={`csv-check-${item.id}`}
+                          checked={!!selectedModules[item.id]}
+                          onChange={(e) => setSelectedModules({ ...selectedModules, [item.id]: e.target.checked })}
+                          className="mt-1 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                        />
+                        <label htmlFor={`csv-check-${item.id}`} className="cursor-pointer">
+                          <div className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                            <span>{item.title}</span>
+                            <span className="px-1.5 py-0.2 bg-slate-100 text-slate-600 rounded text-[10px] font-semibold">
+                              {item.count} data
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 mt-0.5">{item.desc}</p>
+                        </label>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadCSV(item.id)}
+                        className="px-2.5 py-1.5 bg-slate-100 hover:bg-emerald-100 text-slate-700 hover:text-emerald-900 border border-slate-200 rounded-lg text-xs font-bold transition flex items-center gap-1 shrink-0 cursor-pointer"
+                        title={`Unduh ${item.title} sebagai CSV`}
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Unduh</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Panduan Buka di Google Sheets */}
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+                <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-700" />
+                  <span>Cara Membuka File CSV di Google Sheets (Hanya 3 Langkah):</span>
+                </div>
+                <ol className="list-decimal list-inside space-y-1 text-slate-600 text-[11px] pl-1">
+                  <li>Buka situs <a href="https://sheets.google.com" target="_blank" rel="noreferrer" className="text-emerald-700 font-bold underline">Google Sheets</a> di browser Anda.</li>
+                  <li>Klik menu <strong>File</strong> &gt; <strong>Buka (Open)</strong> &gt; pilih tab <strong>Upload</strong>.</li>
+                  <li>Seret atau pilih file <code>.csv</code> yang baru saja diunduh. Google Sheets akan otomatis menata semua kolom, nama, dan rupiah secara rapi!</li>
+                </ol>
               </div>
             </div>
           )}

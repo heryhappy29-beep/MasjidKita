@@ -80,6 +80,18 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
       return null;
     }
 
+    // Penanganan jika domain belum terdaftar di Authorized Domains Firebase
+    if (errorCode === 'auth/unauthorized-domain' || errorMsg.includes('unauthorized-domain')) {
+      const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'domain aplikasi';
+      const customErr = new Error(
+        `Domain "${currentHost}" belum diizinkan di Firebase Authentication (Authorized Domains). Silakan tambahkan domain ini di Firebase Console.`
+      );
+      (customErr as any).code = 'auth/unauthorized-domain';
+      (customErr as any).domain = currentHost;
+      console.error('Firebase Auth Unauthorized Domain:', currentHost);
+      throw customErr;
+    }
+
     // Penanganan jika popup diblokir oleh browser / iframe
     if (errorCode === 'auth/popup-blocked' || errorMsg.includes('popup-blocked')) {
       console.warn('Jendela popup diblokir oleh browser atau pengaturan iframe.');
