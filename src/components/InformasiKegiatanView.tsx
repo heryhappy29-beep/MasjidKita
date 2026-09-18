@@ -3,10 +3,12 @@ import {
   MosqueNews, 
   MosqueEvent, 
   GalleryItem, 
+  FridayPrayerSchedule,
   UserRole 
 } from '../types';
 import { formatDateIndo, createWhatsAppUrl } from '../utils/formatters';
 import { MOSQUE_INFO } from '../data/initialData';
+import { FridayPrayerScheduleSection } from './FridayPrayerScheduleSection';
 import { 
   CalendarDays, 
   Newspaper, 
@@ -26,7 +28,8 @@ import {
   X, 
   Lock,
   Phone,
-  MessageCircle
+  MessageCircle,
+  Sparkles
 } from 'lucide-react';
 
 interface InformasiKegiatanViewProps {
@@ -42,6 +45,10 @@ interface InformasiKegiatanViewProps {
   onAddGallery: (g: Omit<GalleryItem, 'id'>) => void;
   onEditGallery?: (g: GalleryItem) => void;
   onDeleteGallery: (id: string) => void;
+  jumatSchedules: FridayPrayerSchedule[];
+  onAddJumatSchedule: (s: Omit<FridayPrayerSchedule, 'id'>) => void;
+  onEditJumatSchedule: (s: FridayPrayerSchedule) => void;
+  onDeleteJumatSchedule: (id: string) => void;
   currentUserRole: UserRole;
   onOpenLogin: () => void;
 }
@@ -59,12 +66,16 @@ export const InformasiKegiatanView: React.FC<InformasiKegiatanViewProps> = ({
   onAddGallery,
   onEditGallery,
   onDeleteGallery,
+  jumatSchedules,
+  onAddJumatSchedule,
+  onEditJumatSchedule,
+  onDeleteJumatSchedule,
   currentUserRole,
   onOpenLogin
 }) => {
-  const canManage = currentUserRole === 'super_admin' || currentUserRole === 'sekretaris_masjid';
+  const canManage = currentUserRole === 'super_admin' || currentUserRole === 'sekretaris_masjid' || currentUserRole === 'bendahara_masjid';
 
-  const [subTab, setSubTab] = useState<'berita' | 'agenda' | 'galeri' | 'kontak'>('berita');
+  const [subTab, setSubTab] = useState<'jumat' | 'berita' | 'agenda' | 'galeri' | 'kontak'>('jumat');
   const [searchTerm, setSearchTerm] = useState('');
 
   // Modal Detail Berita / Kegiatan
@@ -217,6 +228,17 @@ export const InformasiKegiatanView: React.FC<InformasiKegiatanViewProps> = ({
       <div className="flex items-center justify-between flex-wrap gap-3 border-b border-slate-200 pb-3">
         <div className="flex space-x-1.5 overflow-x-auto">
           <button
+            onClick={() => setSubTab('jumat')}
+            className={`flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition ${
+              subTab === 'jumat'
+                ? 'bg-emerald-700 text-white shadow-xs'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <Clock className="w-4 h-4 text-amber-300" />
+            <span>Info Sholat Jum'at</span>
+          </button>
+          <button
             onClick={() => setSubTab('berita')}
             className={`flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition ${
               subTab === 'berita'
@@ -313,6 +335,18 @@ export const InformasiKegiatanView: React.FC<InformasiKegiatanViewProps> = ({
         />
       </div>
 
+      {/* 0. JADWAL & PETUGAS SHOLAT JUM'AT */}
+      {subTab === 'jumat' && (
+        <FridayPrayerScheduleSection
+          schedules={jumatSchedules}
+          onAddSchedule={onAddJumatSchedule}
+          onEditSchedule={onEditJumatSchedule}
+          onDeleteSchedule={onDeleteJumatSchedule}
+          currentUserRole={currentUserRole}
+          onOpenLogin={onOpenLogin}
+        />
+      )}
+
       {/* 1. DAFTAR BERITA & PENGUMUMAN (NEWS FEED) */}
       {subTab === 'berita' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -408,8 +442,50 @@ export const InformasiKegiatanView: React.FC<InformasiKegiatanViewProps> = ({
 
       {/* 2. AGENDA / KALENDER KEGIATAN */}
       {subTab === 'agenda' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {events
+        <div className="space-y-4">
+          {/* Highlight Sholat Jum'at di Tab Agenda */}
+          {(() => {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const upcomingJumat = [...jumatSchedules]
+              .sort((a, b) => a.tanggal.localeCompare(b.tanggal))
+              .find((s) => s.tanggal >= todayStr) || jumatSchedules[0];
+
+            if (!upcomingJumat) return null;
+
+            return (
+              <div className="bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-900 text-white p-4.5 rounded-2xl shadow-sm border border-emerald-700/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-800/90 border border-emerald-500/40 flex items-center justify-center shrink-0">
+                    <Clock className="w-5 h-5 text-amber-300" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-400 text-emerald-950 uppercase tracking-wide">
+                        Petugas Sholat Jum'at Pekan Ini
+                      </span>
+                      <span className="text-xs text-emerald-200 font-semibold">
+                        {upcomingJumat.hari}, {formatDateIndo(upcomingJumat.tanggal)} • {upcomingJumat.waktu}
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm font-bold text-white mt-1">
+                      Khatib: <span className="text-amber-200">{upcomingJumat.khatib}</span> • Imam: <span className="text-emerald-200">{upcomingJumat.imam}</span> • Muadzin: <span className="text-teal-200">{upcomingJumat.muadzin}</span>
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setSubTab('jumat')}
+                  className="px-3.5 py-2 bg-amber-400 hover:bg-amber-300 text-emerald-950 rounded-xl text-xs font-bold transition shrink-0 flex items-center gap-1.5 shadow-xs cursor-pointer self-stretch sm:self-auto justify-center"
+                >
+                  <span>Lihat Jadwal Jum'at Lengkap</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            );
+          })()}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {events
             .filter((e) =>
               e.judul.toLowerCase().includes(searchTerm.toLowerCase()) ||
               e.narasumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -503,6 +579,7 @@ export const InformasiKegiatanView: React.FC<InformasiKegiatanViewProps> = ({
                 </div>
               </div>
             ))}
+          </div>
         </div>
       )}
 

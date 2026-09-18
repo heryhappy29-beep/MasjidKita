@@ -171,3 +171,17 @@ export interface GalleryItem {
   mediaUrl: string;
   tipe: 'foto' | 'video';
 }
+
+// 6. JADWAL & PETUGAS SHOLAT JUM'AT
+export interface FridayPrayerSchedule {
+  id: string;
+  tanggal: string; // YYYY-MM-DD
+  hari: string; // "Jum'at"
+  waktu: string; // Waktu sholat Jum'at (otomatis/WIB), misal "12:08 WIB"
+  muadzin: string; // Petugas Muadzin / Bilal
+  khatib: string; // Petugas Khatib
+  imam: string; // Petugas Imam
+  temaKhutbah?: string; // Tema / Judul Khutbah
+  keterangan?: string; // Catatan tambahan (misal: "Disertai pengumpulan infaq kemanusiaan")
+}
+

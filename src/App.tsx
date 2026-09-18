@@ -13,7 +13,8 @@ import {
   InfaqRecord, 
   MosqueNews, 
   MosqueEvent, 
-  GalleryItem, 
+  GalleryItem,
+  FridayPrayerSchedule,
   UserAccount
 } from './types';
 import { 
@@ -152,6 +153,10 @@ export default function App() {
     loadFromStorage('as_shomad_gallery', INITIAL_DATA.gallery)
   );
 
+  const [jumatSchedules, setJumatSchedules] = useState<FridayPrayerSchedule[]>(() =>
+    loadFromStorage('as_shomad_jumat_schedules', INITIAL_DATA.jumatSchedules)
+  );
+
   // Persistence to LocalStorage
   useEffect(() => {
     localStorage.setItem('as_shomad_current_user', JSON.stringify(currentUser));
@@ -205,6 +210,10 @@ export default function App() {
     localStorage.setItem('as_shomad_gallery', JSON.stringify(gallery));
   }, [gallery]);
 
+  useEffect(() => {
+    localStorage.setItem('as_shomad_jumat_schedules', JSON.stringify(jumatSchedules));
+  }, [jumatSchedules]);
+
   // Auth Handlers
   const handleLogin = (user: UserAccount) => {
     setCurrentUser(user);
@@ -225,6 +234,7 @@ export default function App() {
       localStorage.setItem('as_shomad_news', JSON.stringify(newsList));
       localStorage.setItem('as_shomad_events', JSON.stringify(events));
       localStorage.setItem('as_shomad_gallery', JSON.stringify(gallery));
+      localStorage.setItem('as_shomad_jumat_schedules', JSON.stringify(jumatSchedules));
     } catch (e) {
       console.error('Gagal menyimpan data saat logout:', e);
     }
@@ -515,6 +525,28 @@ export default function App() {
     saveToStorage('as_shomad_gallery', updated);
   };
 
+  const handleAddJumatSchedule = (s: Omit<FridayPrayerSchedule, 'id'>) => {
+    const newSchedule: FridayPrayerSchedule = {
+      ...s,
+      id: `JMT-${Date.now().toString().slice(-5)}`
+    };
+    const updated = [newSchedule, ...jumatSchedules];
+    setJumatSchedules(updated);
+    saveToStorage('as_shomad_jumat_schedules', updated);
+  };
+
+  const handleEditJumatSchedule = (s: FridayPrayerSchedule) => {
+    const updated = jumatSchedules.map((item) => (item.id === s.id ? s : item));
+    setJumatSchedules(updated);
+    saveToStorage('as_shomad_jumat_schedules', updated);
+  };
+
+  const handleDeleteJumatSchedule = (id: string) => {
+    const updated = jumatSchedules.filter((item) => item.id !== id);
+    setJumatSchedules(updated);
+    saveToStorage('as_shomad_jumat_schedules', updated);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans">
       {/* HEADER UTAMA APLIKASI & NAVIGASI 5 MENU */}
@@ -622,6 +654,10 @@ export default function App() {
             onAddGallery={handleAddGallery}
             onEditGallery={handleEditGallery}
             onDeleteGallery={handleDeleteGallery}
+            jumatSchedules={jumatSchedules}
+            onAddJumatSchedule={handleAddJumatSchedule}
+            onEditJumatSchedule={handleEditJumatSchedule}
+            onDeleteJumatSchedule={handleDeleteJumatSchedule}
             currentUserRole={currentUser.role}
             onOpenLogin={() => setIsLoginModalOpen(true)}
           />

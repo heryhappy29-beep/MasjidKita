@@ -98,3 +98,54 @@ export function angkaTerbilang(nilai: number): string {
   const hasil = bagi(angka).trim().replace(/\s+/g, ' ');
   return hasil ? hasil + ' Rupiah' : 'Nol Rupiah';
 }
+
+/**
+ * Menghitung waktu sholat Jum'at (masuk waktu dzuhur) secara otomatis
+ * berdasarkan pergerakan matahari tahunan (Equation of Time) + ihtiyat untuk zona WIB.
+ */
+export function calculateAutomaticFridayPrayerTime(dateStr?: string): string {
+  const d = dateStr ? new Date(dateStr + 'T12:00:00') : new Date();
+  if (isNaN(d.getTime())) return '12:08 WIB';
+  
+  // Hari dalam tahun (day of year)
+  const startOfYear = new Date(d.getFullYear(), 0, 1);
+  const diff = d.getTime() - startOfYear.getTime();
+  const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24)) + 1;
+  
+  // Persamaan Waktu / Equation of Time (EoT dalam menit)
+  const b = (360 / 365) * (dayOfYear - 81) * (Math.PI / 180);
+  const eot = 9.87 * Math.sin(2 * b) - 7.53 * Math.cos(b) - 1.5 * Math.sin(b);
+  
+  // Penyesuaian meridian wilayah WIB (longitude ~104°E vs 105°E standar) + 2.5 menit ihtiyat kehati-hatian
+  const minutesAdjustment = -eot + 4 + 3;
+  const totalMinutes = 12 * 60 + Math.round(minutesAdjustment);
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  
+  return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')} WIB`;
+}
+
+/**
+ * Mendapatkan nama hari dalam Bahasa Indonesia dari tanggal YYYY-MM-DD
+ */
+export function getIndonesianDayName(dateStr: string): string {
+  try {
+    const d = new Date(dateStr + 'T12:00:00');
+    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', "Jum'at", 'Sabtu'];
+    return days[d.getDay()] || "Jum'at";
+  } catch {
+    return "Jum'at";
+  }
+}
+
+/**
+ * Mendapatkan tanggal hari Jum'at terdekat dari hari ini (YYYY-MM-DD)
+ */
+export function getNextFridayDate(baseDate = new Date()): string {
+  const d = new Date(baseDate);
+  const day = d.getDay(); // 0 = Minggu, 5 = Jumat
+  const diff = (5 - day + 7) % 7;
+  d.setDate(d.getDate() + diff);
+  return d.toISOString().split('T')[0];
+}
+

@@ -11,6 +11,7 @@ import {
   MosqueNews, 
   MosqueEvent, 
   GalleryItem,
+  FridayPrayerSchedule,
   UserAccount
 } from '../types';
 
@@ -649,6 +650,42 @@ export const MOSQUE_INFO = {
 
 export const INITIAL_USERS = INITIAL_ACCOUNTS;
 
+export const INITIAL_JUMAT_SCHEDULES: FridayPrayerSchedule[] = [
+  {
+    id: 'JMT-2026-001',
+    tanggal: '2026-09-18',
+    hari: "Jum'at",
+    waktu: '12:08 WIB',
+    muadzin: 'Ustadz Bilal Ramadhan',
+    khatib: 'Ustadz Dr. H. Ahmad Fauzi, M.Ag',
+    imam: 'Ustadz Muhammad Ridwan, Al-Hafidz',
+    temaKhutbah: 'Membangun Ukhuwah dan Keberkahan Rezeki Melalui Amal Jariyah',
+    keterangan: 'Dihimbau hadir 15 menit sebelum adzan. Disediakan kotak infaq kemanusiaan.'
+  },
+  {
+    id: 'JMT-2026-002',
+    tanggal: '2026-09-25',
+    hari: "Jum'at",
+    waktu: '12:06 WIB',
+    muadzin: 'Bapak Syamsul Bahri',
+    khatib: 'Ustadz Ilham Hidayat, Lc., M.H.',
+    imam: 'Ustadz Ilham Hidayat, Lc., M.H.',
+    temaKhutbah: 'Meneladani Kesabaran dan Akhlak Mulia Rasulullah SAW',
+    keterangan: 'Kajian ringkas fiqih ibadah ba’da sholat Jum’at bersama jamaah.'
+  },
+  {
+    id: 'JMT-2026-003',
+    tanggal: '2026-10-02',
+    hari: "Jum'at",
+    waktu: '12:04 WIB',
+    muadzin: 'Ustadz Fadil Mubarak',
+    khatib: 'Ustadz H. Zulkarnain Tanjung, S.Pd.I',
+    imam: 'Ustadz H. Zulkarnain Tanjung, S.Pd.I',
+    temaKhutbah: 'Kunci Ketenangan Jiwa Menghadapi Ujian Kehidupan',
+    keterangan: 'Disiarkan langsung melalui pengeras suara dan dokumentasi DKM.'
+  }
+];
+
 export const INITIAL_DATA = {
   transactions: INITIAL_TRANSACTIONS,
   reconciliations: INITIAL_BANK_MUTATION,
@@ -662,5 +699,6 @@ export const INITIAL_DATA = {
   news: INITIAL_MOSQUE_NEWS,
   events: INITIAL_MOSQUE_EVENTS,
   gallery: INITIAL_GALLERY,
+  jumatSchedules: INITIAL_JUMAT_SCHEDULES
 };
 
