@@ -59,13 +59,117 @@ function initialSetup() {
   return "Inisialisasi tabel Google Sheets berhasil!";
 }
 
-// Endpoint Web App: Menampilkan Web App HTML
+// Endpoint Web App: Menampilkan Web App HTML atau Status API
 function doGet(e) {
+  if (e && e.parameter && e.parameter.action === 'ping') {
+    return ContentService.createTextOutput(JSON.stringify({ 
+      success: true, 
+      message: 'Koneksi Google Apps Script Aktif & Siap!',
+      timestamp: new Date().toISOString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
   return HtmlService.createTemplateFromFile('Index')
     .evaluate()
     .setTitle('Manajemen Keuangan Masjid As Shomad')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1.0')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+// Endpoint Web App: Menerima Sinkronisasi Data dari Web App (POST)
+function doPost(e) {
+  try {
+    const rawData = e && e.postData ? e.postData.contents : '{}';
+    const payload = JSON.parse(rawData);
+    const ss = getSpreadsheet();
+
+    // 1. Uji Koneksi (Ping)
+    if (payload.action === 'ping') {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: true,
+        message: 'Koneksi ke Google Sheets berhasil!',
+        spreadsheetTitle: ss.getName(),
+        spreadsheetUrl: ss.getUrl()
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // 2. Sinkronisasi Penuh Semua / Lembar Kerja Terpilih
+    if (payload.action === 'sync_all' || payload.action === 'sync_tabs') {
+      const sheetsData = payload.sheets || {};
+      const updatedInfo = {};
+
+      for (const sheetKey in sheetsData) {
+        const item = sheetsData[sheetKey];
+        const sheetTitle = item.title || sheetKey;
+        let sheet = ss.getSheetByName(sheetTitle);
+
+        if (!sheet) {
+          sheet = ss.insertSheet(sheetTitle);
+        } else {
+          sheet.clear(); // Bersihkan isi lama untuk sinkronisasi penuh
+        }
+
+        const headers = item.headers || [];
+        const rows = item.rows || [];
+        const combined = [headers].concat(rows);
+
+        if (combined.length > 0 && headers.length > 0) {
+          const numRows = combined.length;
+          const numCols = headers.length;
+          
+          sheet.getRange(1, 1, numRows, numCols).setValues(combined);
+
+          // Format Header: Latar Hijau Emerald Masjid (#065f46), Teks Putih Tebal
+          const headerRange = sheet.getRange(1, 1, 1, numCols);
+          headerRange.setFontWeight('bold');
+          headerRange.setBackground('#065f46');
+          headerRange.setFontColor('#ffffff');
+          sheet.setFrozenRows(1);
+
+          // Auto-fit kolom
+          try {
+            sheet.autoResizeColumns(1, numCols);
+          } catch (resizeErr) {}
+        }
+
+        updatedInfo[sheetTitle] = rows.length;
+      }
+
+      return ContentService.createTextOutput(JSON.stringify({
+        success: true,
+        message: 'Data Masjid As Shomad berhasil disinkronkan ke Google Sheets!',
+        sheetsUpdated: updatedInfo,
+        spreadsheetTitle: ss.getName(),
+        spreadsheetUrl: ss.getUrl(),
+        timestamp: new Date().toISOString()
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // 3. Mutasi per entri
+    if (payload.action === 'simpan_transaksi') {
+      return ContentService.createTextOutput(JSON.stringify(simpanTransaksi(payload.data)))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    if (payload.action === 'simpan_shohibul') {
+      return ContentService.createTextOutput(JSON.stringify(simpanShohibulQurban(payload.data)))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    if (payload.action === 'simpan_iuran') {
+      return ContentService.createTextOutput(JSON.stringify(simpanIuranBabul(payload.data)))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: 'Aksi tidak dikenali: ' + payload.action
+    })).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 // API: Ambil semua data (Read)

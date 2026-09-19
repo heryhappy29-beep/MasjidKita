@@ -19,7 +19,12 @@ import {
   Copy,
   Download,
   ShieldAlert,
-  HelpCircle
+  HelpCircle,
+  Code,
+  Zap,
+  Send,
+  FileCode,
+  ShieldCheck
 } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { 
@@ -38,8 +43,11 @@ import {
   DriveSpreadsheetItem,
   SpreadsheetDetails,
   extractSpreadsheetId,
-  prepareSheetData
+  prepareSheetData,
+  syncViaGoogleAppsScript,
+  testGoogleAppsScriptConnection
 } from '../services/googleSheetsService';
+import { GOOGLE_APPS_SCRIPT_CODE_GS } from '../data/googleAppsScriptCode';
 
 interface GoogleSheetsModalProps {
   isOpen: boolean;
@@ -57,9 +65,17 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
   const [googleUser, setGoogleUser] = useState<User | null>(null);
   const [hasToken, setHasToken] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
-  const [activeTab, setActiveTab] = useState<'create' | 'sync_existing' | 'preview' | 'export_csv'>('create');
+  const [activeTab, setActiveTab] = useState<'apps_script' | 'create' | 'sync_existing' | 'preview' | 'export_csv'>('apps_script');
   const [unauthorizedDomain, setUnauthorizedDomain] = useState<string | null>(null);
   const [copiedDomain, setCopiedDomain] = useState(false);
+
+  // Apps Script Webhook State (Bebas Firebase / Rekomendasi Utama)
+  const [appsScriptUrl, setAppsScriptUrl] = useState<string>(() => {
+    return localStorage.getItem('as_shomad_apps_script_url') || '';
+  });
+  const [copiedScript, setCopiedScript] = useState(false);
+  const [isTestingScript, setIsTestingScript] = useState(false);
+  const [showScriptCode, setShowScriptCode] = useState(false);
 
   // New Spreadsheet State
   const [newTitle, setNewTitle] = useState('Manajemen Keuangan Masjid As Shomad 1446 H');
@@ -226,6 +242,73 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
       setErrorMessage(msg || 'Gagal masuk dengan Google.');
     } finally {
       setIsSigningIn(false);
+    }
+  };
+
+  // Apps Script Webhook Handlers (100% Bebas Firebase)
+  const handleCopyAppsScriptCode = () => {
+    navigator.clipboard.writeText(GOOGLE_APPS_SCRIPT_CODE_GS);
+    setCopiedScript(true);
+    setTimeout(() => setCopiedScript(false), 3000);
+  };
+
+  const handleTestAppsScript = async () => {
+    if (!appsScriptUrl.trim()) {
+      setErrorMessage('Masukkan URL Web App Google Apps Script terlebih dahulu.');
+      return;
+    }
+    setIsTestingScript(true);
+    setErrorMessage(null);
+    try {
+      const res = await testGoogleAppsScriptConnection(appsScriptUrl);
+      setSuccessMessage(res.message);
+      setTimeout(() => setSuccessMessage(null), 5000);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Uji koneksi gagal.');
+    } finally {
+      setIsTestingScript(false);
+    }
+  };
+
+  const handleAppsScriptSync = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!appsScriptUrl.trim()) {
+      setErrorMessage('Masukkan URL Web App Google Apps Script terlebih dahulu.');
+      return;
+    }
+
+    const tabsToSync = Object.keys(selectedModules).filter((k) => selectedModules[k]);
+    if (tabsToSync.length === 0) {
+      setErrorMessage('Pilih minimal 1 lembar kerja untuk disinkronkan.');
+      return;
+    }
+
+    setIsProcessing(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      const result = await syncViaGoogleAppsScript(appsScriptUrl, data, tabsToSync);
+      localStorage.setItem('as_shomad_apps_script_url', appsScriptUrl.trim());
+      const now = new Date().toLocaleString('id-ID');
+      setLastSyncTime(now);
+      localStorage.setItem('as_shomad_last_sheets_sync', now);
+
+      if (result.spreadsheetUrl) {
+        const newActive = {
+          id: 'apps_script',
+          url: result.spreadsheetUrl,
+          title: result.spreadsheetTitle || 'Google Spreadsheet (Apps Script)'
+        };
+        setCurrentSpreadsheet(newActive);
+        localStorage.setItem('as_shomad_active_spreadsheet', JSON.stringify(newActive));
+      }
+
+      setSuccessMessage(result.message || `Berhasil menyinkronkan ${tabsToSync.length} lembar kerja ke Google Sheets!`);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Gagal menyinkronkan data ke Google Apps Script.');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -513,6 +596,14 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
                 )}
               </div>
             )}
+
+            {/* Status Apps Script Webhook */}
+            {appsScriptUrl && (
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-lg text-xs font-bold">
+                <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500 shrink-0" />
+                <span className="truncate max-w-[150px]">Apps Script Aktif</span>
+              </div>
+            )}
           </div>
 
           {/* Info Spreadsheet Aktif */}
@@ -537,6 +628,22 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
         <div className="flex border-b border-slate-200 bg-white px-6 overflow-x-auto shrink-0">
           <button
             type="button"
+            onClick={() => setActiveTab('apps_script')}
+            className={`py-3 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
+              activeTab === 'apps_script'
+                ? 'border-emerald-700 text-emerald-800 bg-emerald-50/40'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <Zap className="w-4 h-4 text-amber-500" />
+            <span>Koneksi Apps Script (Bebas Firebase)</span>
+            <span className="ml-1 px-1.5 py-0.2 bg-emerald-100 text-emerald-800 rounded text-[9px] font-extrabold uppercase">
+              Rekomendasi
+            </span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab('create')}
             className={`py-3 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
               activeTab === 'create'
@@ -545,7 +652,7 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
             }`}
           >
             <Plus className="w-4 h-4" />
-            <span>Buat Spreadsheet Baru</span>
+            <span>Buat Spreadsheet Baru (OAuth)</span>
           </button>
 
           <button
@@ -595,14 +702,17 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
 
         {/* Special Diagnostic Helper for Firebase Unauthorized Domain (Compact Horizontal Bar) */}
         {unauthorizedDomain && (
-          <div className="mx-6 mt-3 p-3 bg-amber-50 border-2 border-amber-300 rounded-xl text-xs text-amber-950 shrink-0">
+          <div className="mx-6 mt-3 p-3.5 bg-amber-50 border-2 border-amber-300 rounded-xl text-xs text-amber-950 shrink-0">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <ShieldAlert className="w-5 h-5 text-amber-700 shrink-0" />
+              <div className="flex items-start gap-2.5">
+                <ShieldAlert className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-extrabold text-amber-950 block">Perlu Menambahkan Domain di Firebase Console</span>
-                  <p className="text-[11px] text-amber-800">
-                    Otorisasikan domain <code className="bg-amber-100/90 px-1 py-0.5 rounded font-mono font-bold text-emerald-900">{unauthorizedDomain}</code> di Firebase Console agar login Google berhasil.
+                  <span className="font-extrabold text-amber-950 block text-xs">
+                    Firebase Auth Menolak Domain Ini (auth/unauthorized-domain)
+                  </span>
+                  <p className="text-[11px] text-amber-900 mt-0.5 leading-relaxed">
+                    Domain preview <code className="bg-amber-100 px-1 py-0.5 rounded font-mono font-bold text-amber-950">{unauthorizedDomain}</code> belum diizinkan di Firebase Console. 
+                    <strong className="text-emerald-900 font-bold ml-1">Solusi Mudah:</strong> Gunakan tab <strong>"Koneksi Apps Script"</strong> di bawah untuk langsung menyambungkan Google Sheets Anda tanpa perlu pusing mengatur Firebase Console!
                   </p>
                 </div>
               </div>
@@ -610,8 +720,20 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
+                  onClick={() => {
+                    setUnauthorizedDomain(null);
+                    setActiveTab('apps_script');
+                  }}
+                  className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+                >
+                  <Zap className="w-3.5 h-3.5 text-yellow-300" />
+                  <span>Beralih ke Apps Script (Bebas Firebase)</span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => handleCopyDomain(unauthorizedDomain)}
-                  className="px-2.5 py-1 bg-amber-200 hover:bg-amber-300 text-amber-950 rounded-lg font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
+                  className="px-2.5 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-950 rounded-lg font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
+                  title="Salin domain untuk Firebase Console"
                 >
                   {copiedDomain ? (
                     <>
@@ -624,26 +746,6 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
                       <span>Salin Domain</span>
                     </>
                   )}
-                </button>
-                <a
-                  href="https://console.firebase.google.com/project/gen-lang-client-0959467835/authentication/settings"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-2.5 py-1 bg-emerald-800 hover:bg-emerald-900 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 transition"
-                >
-                  <span>Buka Console</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUnauthorizedDomain(null);
-                    setActiveTab('export_csv');
-                  }}
-                  className="px-2.5 py-1 bg-white hover:bg-slate-50 border border-amber-300 text-slate-700 rounded-lg font-bold text-xs flex items-center gap-1 transition cursor-pointer"
-                  title="Gunakan ekspor CSV tanpa perlu setel Firebase"
-                >
-                  <span>Pakai CSV</span>
                 </button>
               </div>
             </div>
@@ -667,6 +769,243 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
 
         {/* Content Body: Wide, Multi-Column, Non-Scrolling on Desktop */}
         <div className="p-5 sm:p-6 overflow-y-auto flex-1">
+          {/* TAB 0: KONEKSI APPS SCRIPT WEBHOOK (BEBAS FIREBASE) */}
+          {activeTab === 'apps_script' && (
+            <form onSubmit={handleAppsScriptSync} className="grid grid-cols-1 lg:grid-cols-12 gap-5 text-xs">
+              {/* Sisi Kiri (5 Kolom): 3 Langkah Praktis & Input URL Web App */}
+              <div className="lg:col-span-5 flex flex-col justify-between space-y-4 bg-slate-50/80 p-4 rounded-2xl border border-slate-200">
+                <div className="space-y-3.5">
+                  {/* Banner Keunggulan */}
+                  <div className="p-3 bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl">
+                    <div className="flex items-center gap-2 font-bold text-emerald-900 text-xs">
+                      <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
+                      <span>Koneksi Langsung Google Sheets (Bebas Firebase)</span>
+                    </div>
+                    <p className="text-[11px] text-emerald-800 mt-1 leading-relaxed">
+                      Metode ini 100% aman, tidak terpengaruh batasan domain Firebase, dan langsung menulis data kas, qurban, infaq, dan babul khairat ke Google Spreadsheet Anda.
+                    </p>
+                  </div>
+
+                  {/* 3 Langkah Mudah */}
+                  <div className="space-y-2.5">
+                    <span className="font-bold text-slate-800 text-xs block">3 Langkah Menghubungkan Google Sheets:</span>
+                    
+                    {/* Langkah 1 */}
+                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
+                          <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 font-extrabold flex items-center justify-center text-[10px]">1</span>
+                          Siapkan Spreadsheet Google
+                        </span>
+                        <a 
+                          href="https://sheets.new" 
+                          target="_blank" 
+                          rel="noreferrer" 
+                          className="px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded font-bold text-[10px] flex items-center gap-1 transition"
+                        >
+                          <span>Buka sheets.new</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                      <p className="text-[11px] text-slate-500 leading-normal">
+                        Buka Google Sheets (atau buat baru), lalu klik menu <strong>Ekstensi &gt; Apps Script</strong>.
+                      </p>
+                    </div>
+
+                    {/* Langkah 2 */}
+                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
+                          <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 font-extrabold flex items-center justify-center text-[10px]">2</span>
+                          Salin &amp; Tempel Kode Apps Script
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleCopyAppsScriptCode}
+                          className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded font-bold text-[10px] flex items-center gap-1 shadow-2xs transition cursor-pointer"
+                        >
+                          {copiedScript ? (
+                            <>
+                              <Check className="w-3 h-3 text-emerald-200" />
+                              <span>Tersalin!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3 h-3" />
+                              <span>Salin Kode Script</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-slate-500 leading-normal">
+                        Hapus kode default di Apps Script, tempel kode yang baru disalin, lalu simpan (Ctrl+S).
+                      </p>
+                      <div className="pt-0.5">
+                        <button
+                          type="button"
+                          onClick={() => setShowScriptCode(!showScriptCode)}
+                          className="text-[10px] text-emerald-700 hover:underline font-bold flex items-center gap-1 cursor-pointer"
+                        >
+                          <Code className="w-3 h-3" />
+                          <span>{showScriptCode ? 'Tutup Pratinjau Kode' : 'Lihat Pratinjau Kode Script'}</span>
+                        </button>
+                        {showScriptCode && (
+                          <pre className="mt-1.5 p-2 bg-slate-900 text-emerald-400 font-mono text-[9px] rounded-lg max-h-28 overflow-y-auto whitespace-pre-wrap border border-slate-800">
+                            {GOOGLE_APPS_SCRIPT_CODE_GS.slice(0, 600)}...
+                          </pre>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Langkah 3 */}
+                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-1.5">
+                      <span className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
+                        <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 font-extrabold flex items-center justify-center text-[10px]">3</span>
+                        Terapkan (Deploy) Sebagai Web App
+                      </span>
+                      <p className="text-[11px] text-slate-500 leading-normal">
+                        Klik tombol biru <strong>Terapkan (Deploy) &gt; Deployment baru</strong>. Pilih jenis <strong>Aplikasi Web</strong>:
+                      </p>
+                      <ul className="text-[10px] text-slate-600 list-disc list-inside space-y-0.5 pl-1">
+                        <li>Jalankan sebagai: <strong>Saya (email Anda)</strong></li>
+                        <li>Yang memiliki akses: <strong>Siapa saja (Anyone)</strong></li>
+                      </ul>
+                      <p className="text-[10px] text-emerald-700 font-semibold mt-1">
+                        Salin URL Aplikasi Web yang berakhiran <code className="bg-emerald-100 px-1 py-0.5 rounded font-mono">/exec</code>.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Form Input URL Web App */}
+                  <div className="space-y-2 pt-1">
+                    <label className="block font-bold text-slate-800 text-xs">
+                      Tempel URL Web App Google Apps Script:
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="url"
+                        required
+                        value={appsScriptUrl}
+                        onChange={(e) => setAppsScriptUrl(e.target.value)}
+                        placeholder="https://script.google.com/macros/s/.../exec"
+                        className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-600 outline-hidden font-mono text-xs shadow-2xs"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleTestAppsScript}
+                        disabled={isTestingScript || !appsScriptUrl.trim()}
+                        className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-bold border border-slate-300 transition cursor-pointer shrink-0 text-xs disabled:opacity-50"
+                      >
+                        {isTestingScript ? 'Menguji...' : 'Uji Koneksi'}
+                      </button>
+                    </div>
+                    {lastSyncTime && (
+                      <div className="flex items-center gap-1.5 text-[10px] text-emerald-700 font-medium">
+                        <Check className="w-3 h-3 text-emerald-600 shrink-0" />
+                        <span>Terakhir disinkronkan: {lastSyncTime}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={isProcessing || !appsScriptUrl.trim()}
+                    className="w-full py-3 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition shadow-sm cursor-pointer disabled:opacity-50 text-xs"
+                  >
+                    {isProcessing ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>Mengirim &amp; Menyinkronkan ke Google Sheets...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        <span>Sinkronkan Sekarang ke Google Sheets</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Sisi Kanan (7 Kolom): Pilihan 6 Modul Lembar Kerja */}
+              <div className="lg:col-span-7 flex flex-col justify-between space-y-3">
+                <div>
+                  <div className="flex items-center justify-between mb-2 pb-1 border-b border-slate-100">
+                    <div>
+                      <span className="font-bold text-slate-800 text-xs">Pilih Lembar Data (Sheets) yang Disinkronkan:</span>
+                      <p className="text-[11px] text-slate-500">Centang lembar kerja yang ingin otomatis ditulis dan diperbarui di Google Sheets.</p>
+                    </div>
+                    <div className="flex items-center gap-2 text-[11px] shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleSelectAll(true)}
+                        className="text-emerald-700 hover:text-emerald-900 font-bold hover:underline cursor-pointer"
+                      >
+                        Pilih Semua
+                      </button>
+                      <span className="text-slate-300">•</span>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleSelectAll(false)}
+                        className="text-slate-500 hover:text-slate-700 font-medium hover:underline cursor-pointer"
+                      >
+                        Kosongkan
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {[
+                      { id: 'Laporan_Kas', label: 'Buku Kas Keuangan', count: data.transactions.length, desc: 'Pemasukan, pengeluaran & saldo kas' },
+                      { id: 'Shohibul_Qurban', label: 'Peserta Shohibul Qurban', count: data.shohibulList.length, desc: 'Data peserta, paket hewan & status' },
+                      { id: 'Cicilan_Qurban', label: 'Tabungan / Cicilan Qurban', count: data.installments.length, desc: 'Rekam setoran cicilan & kuitansi' },
+                      { id: 'Stok_Hewan_Qurban', label: 'Stok & Harga Hewan Qurban', count: data.qurbanStocks.length, desc: 'Kuota slot hewan dan harga pasar' },
+                      { id: 'Infaq_Sedekah', label: 'Infaq, Sedekah & Donasi', count: data.infaqRecords.length, desc: 'Kotak Jumat, renovasi, yatim dhuafa' },
+                      { id: 'Babul_Khairat', label: 'Babul Khairat (Sosial)', count: (data.families || []).length, desc: 'Data anggota keluarga & iuran bulanan' }
+                    ].map((mod) => (
+                      <label 
+                        key={mod.id}
+                        className={`flex items-start gap-2.5 p-2.5 rounded-xl border transition cursor-pointer ${
+                          selectedModules[mod.id] 
+                            ? 'border-emerald-600 bg-emerald-50/70 shadow-2xs' 
+                            : 'border-slate-200 bg-slate-50/40 hover:bg-slate-50'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={!!selectedModules[mod.id]}
+                          onChange={(e) => setSelectedModules({ ...selectedModules, [mod.id]: e.target.checked })}
+                          className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-center gap-1">
+                            <span className="font-bold text-slate-800 truncate">{mod.label}</span>
+                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-slate-200/80 text-slate-700 shrink-0">
+                              {mod.count} data
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-500 mt-0.5 truncate">{mod.desc}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="p-3 bg-emerald-50/80 rounded-xl border border-emerald-200 text-[11px] text-emerald-900 space-y-1.5">
+                  <div className="flex items-center justify-between font-bold">
+                    <span>{Object.values(selectedModules).filter(Boolean).length} dari 6 lembar kerja terpilih</span>
+                    <span className="text-emerald-700">Format Tab Rapi &amp; Header Hijau Masjid</span>
+                  </div>
+                  <p className="text-[10px] text-emerald-800">
+                    Ketika tombol sinkron diklik, Apps Script akan memperbarui Google Sheets secara otomatis: membuat tab yang belum ada, menyetel baris judul beku (frozen header), dan menyesuaikan lebar kolom.
+                  </p>
+                </div>
+              </div>
+            </form>
+          )}
+
           {/* TAB 1: BUAT SPREADSHEET BARU */}
           {activeTab === 'create' && (
             <form onSubmit={handleCreateNewSpreadsheet} className="grid grid-cols-1 lg:grid-cols-12 gap-5 text-xs">
@@ -710,7 +1049,23 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
                   </div>
                 </div>
 
-                <div className="pt-2">
+                <div className="pt-2 space-y-2">
+                  {!hasToken && (
+                    <div className="p-2.5 bg-amber-50/90 border border-amber-200 rounded-xl text-[11px] text-amber-900 flex items-start justify-between gap-2">
+                      <div className="flex items-start gap-1.5">
+                        <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                        <span>Mengalami kendala login Firebase? Gunakan metode <strong>Apps Script</strong> yang bebas error.</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('apps_script')}
+                        className="font-bold text-emerald-800 hover:underline shrink-0 flex items-center gap-0.5"
+                      >
+                        <Zap className="w-3 h-3 text-amber-600" />
+                        <span>Buka</span>
+                      </button>
+                    </div>
+                  )}
                   <button
                     type="submit"
                     disabled={isProcessing}
@@ -872,7 +1227,23 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
                   )}
                 </div>
 
-                <div className="pt-2">
+                <div className="pt-2 space-y-2">
+                  {!hasToken && (
+                    <div className="p-2.5 bg-amber-50/90 border border-amber-200 rounded-xl text-[11px] text-amber-900 flex items-start justify-between gap-2">
+                      <div className="flex items-start gap-1.5">
+                        <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                        <span>Mengalami kendala login Firebase? Gunakan metode <strong>Apps Script</strong> yang bebas error.</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('apps_script')}
+                        className="font-bold text-emerald-800 hover:underline shrink-0 flex items-center gap-0.5"
+                      >
+                        <Zap className="w-3 h-3 text-amber-600" />
+                        <span>Buka</span>
+                      </button>
+                    </div>
+                  )}
                   <button
                     type="submit"
                     disabled={isProcessing}

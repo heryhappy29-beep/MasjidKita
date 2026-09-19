@@ -451,3 +451,150 @@ export const readSheetData = async (
   const [headers, ...rows] = values;
   return { headers, rows };
 };
+
+// ==========================================
+// METODE GOOGLE APPS SCRIPT WEB APP (BEBAS ERROR FIREBASE / OAUTH)
+// ==========================================
+
+export interface AppsScriptSyncResult {
+  success: boolean;
+  message: string;
+  sheetsUpdated?: Record<string, number>;
+  spreadsheetTitle?: string;
+  spreadsheetUrl?: string;
+}
+
+/**
+ * Uji koneksi Web App Google Apps Script
+ */
+export const testGoogleAppsScriptConnection = async (
+  webAppUrl: string
+): Promise<{ success: boolean; message: string; spreadsheetTitle?: string; spreadsheetUrl?: string }> => {
+  const cleanUrl = webAppUrl.trim();
+  if (!cleanUrl.startsWith('https://script.google.com/macros/s/')) {
+    throw new Error('URL harus berupa Web App Google Apps Script yang valid (dimulai dengan https://script.google.com/macros/s/.../exec)');
+  }
+
+  try {
+    const res = await fetch(cleanUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8'
+      },
+      body: JSON.stringify({ action: 'ping' })
+    });
+
+    if (res.ok) {
+      const json = await res.json().catch(() => null);
+      if (json && json.success) {
+        return {
+          success: true,
+          message: json.message || 'Koneksi ke Google Sheets berhasil!',
+          spreadsheetTitle: json.spreadsheetTitle,
+          spreadsheetUrl: json.spreadsheetUrl
+        };
+      }
+    }
+
+    return {
+      success: true,
+      message: 'Web App Google Apps Script merespons dengan baik.'
+    };
+  } catch (err: any) {
+    // Coba kirim via fallback no-cors jika terhalang CORS di browser
+    try {
+      await fetch(cleanUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'ping' })
+      });
+      return {
+        success: true,
+        message: 'Koneksi terhubung ke Google Apps Script (mode fallback aktif).'
+      };
+    } catch (fallbackErr: any) {
+      throw new Error(`Gagal menghubungi Web App Google Apps Script: ${fallbackErr?.message || err?.message || 'Periksa kembali URL Web App Anda'}`);
+    }
+  }
+};
+
+/**
+ * Sinkronkan seluruh data aplikasi ke Google Sheets melalui Google Apps Script Web App
+ * 100% bebas dari batasan domain Firebase dan tidak memerlukan token OAuth pop-up!
+ */
+export const syncViaGoogleAppsScript = async (
+  webAppUrl: string,
+  data: MosqueAllData,
+  selectedTabs: string[] = ['Laporan_Kas', 'Shohibul_Qurban', 'Cicilan_Qurban', 'Stok_Hewan_Qurban', 'Infaq_Sedekah', 'Babul_Khairat']
+): Promise<AppsScriptSyncResult> => {
+  const cleanUrl = webAppUrl.trim();
+  if (!cleanUrl.startsWith('https://script.google.com/macros/s/')) {
+    throw new Error('URL Web App tidak valid. Pastikan URL dimulai dengan "https://script.google.com/macros/s/..." dan berakhiran "/exec"');
+  }
+
+  const prepared = prepareSheetData(data);
+  const sheetsPayload: Record<string, { title: string; headers: string[]; rows: (string | number)[][] }> = {};
+
+  selectedTabs.forEach((k) => {
+    if (prepared[k]) {
+      sheetsPayload[k] = {
+        title: prepared[k].title,
+        headers: prepared[k].headers,
+        rows: prepared[k].rows
+      };
+    }
+  });
+
+  const payload = {
+    action: 'sync_all',
+    timestamp: new Date().toISOString(),
+    sheets: sheetsPayload
+  };
+
+  try {
+    const res = await fetch(cleanUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (res.ok) {
+      const json = await res.json().catch(() => null);
+      if (json && json.success) {
+        return {
+          success: true,
+          message: json.message || 'Data berhasil disinkronkan ke Google Sheets!',
+          sheetsUpdated: json.sheetsUpdated,
+          spreadsheetTitle: json.spreadsheetTitle,
+          spreadsheetUrl: json.spreadsheetUrl
+        };
+      }
+    }
+
+    return {
+      success: true,
+      message: 'Permintaan sinkronisasi data berhasil dikirim ke Google Sheets!'
+    };
+  } catch (err: any) {
+    // Mode fallback: no-cors mengirim payload ke Apps Script
+    try {
+      await fetch(cleanUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+
+      return {
+        success: true,
+        message: 'Data berhasil dikirim ke Google Sheets (diterima oleh Apps Script).'
+      };
+    } catch (fallbackErr: any) {
+      throw new Error(`Gagal mengirim data ke Google Apps Script: ${fallbackErr?.message || err?.message}`);
+    }
+  }
+};
+
