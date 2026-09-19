@@ -184,6 +184,15 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
     setTimeout(() => setCopiedDomain(false), 3000);
   };
 
+  // Toggle all modules selection
+  const handleToggleSelectAll = (select: boolean) => {
+    const next: Record<string, boolean> = {};
+    ['Laporan_Kas', 'Shohibul_Qurban', 'Cicilan_Qurban', 'Stok_Hewan_Qurban', 'Infaq_Sedekah', 'Babul_Khairat'].forEach((k) => {
+      next[k] = select;
+    });
+    setSelectedModules(next);
+  };
+
   // Google Sign In handler
   const handleGoogleSignIn = async () => {
     setIsSigningIn(true);
@@ -416,57 +425,58 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full border border-slate-200 overflow-hidden my-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-2 sm:p-4 md:p-6 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-5xl xl:max-w-6xl w-full border border-slate-200 overflow-hidden my-auto max-h-[95vh] flex flex-col transition-all">
         
         {/* Header Modal */}
-        <div className="bg-gradient-to-r from-emerald-800 to-teal-900 px-6 py-4 text-white flex items-center justify-between">
+        <div className="bg-gradient-to-r from-emerald-800 to-teal-900 px-6 py-3.5 text-white flex items-center justify-between shrink-0">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
-              <FileSpreadsheet className="w-6 h-6 text-emerald-300" />
+            <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center border border-white/20 shrink-0">
+              <FileSpreadsheet className="w-5 h-5 text-emerald-300" />
             </div>
             <div>
               <h3 className="font-extrabold text-base flex items-center gap-2">
-                <span>Integrasi Google Sheets</span>
+                <span>Integrasi Google Sheets &amp; Data Masjid</span>
                 <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-200 border border-emerald-400/30">
                   Google Workspace
                 </span>
               </h3>
-              <p className="text-xs text-emerald-200 mt-0.5">
-                Ekspor, kelola buku kas, tabungan qurban, dan infaq secara langsung ke Google Sheets.
+              <p className="text-xs text-emerald-200/90">
+                Ekspor buku kas, peserta qurban, tabungan cicilan, infaq, dan babul khairat langsung ke Google Sheets &amp; Excel.
               </p>
             </div>
           </div>
           <button 
             type="button"
             onClick={onClose}
-            className="text-emerald-200 hover:text-white p-1 rounded-lg hover:bg-white/10 transition cursor-pointer"
+            className="text-emerald-200 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition cursor-pointer shrink-0"
+            title="Tutup Jendela"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Status Bar Akun Google & Spreadsheet Aktif */}
-        <div className="bg-slate-50 border-b border-slate-200 px-6 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs">
+        <div className="bg-slate-50 border-b border-slate-200 px-6 py-2.5 flex flex-col md:flex-row md:items-center md:justify-between gap-2.5 text-xs shrink-0">
           {/* Status Akun */}
           <div className="flex items-center space-x-2.5">
             {hasToken && googleUser ? (
               <div className="flex items-center space-x-2">
                 {googleUser.photoURL ? (
-                  <img src={googleUser.photoURL} alt="" className="w-7 h-7 rounded-full border border-emerald-500" referrerPolicy="no-referrer" />
+                  <img src={googleUser.photoURL} alt="" className="w-6 h-6 rounded-full border border-emerald-500" referrerPolicy="no-referrer" />
                 ) : (
-                  <div className="w-7 h-7 rounded-full bg-emerald-700 text-white flex items-center justify-center font-bold text-xs">
+                  <div className="w-6 h-6 rounded-full bg-emerald-700 text-white flex items-center justify-center font-bold text-[11px]">
                     {googleUser.displayName?.charAt(0) || 'G'}
                   </div>
                 )}
                 <div>
-                  <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                  <div className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
                     <span>{googleUser.displayName || 'Akun Google'}</span>
-                    <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-700 font-semibold bg-emerald-100 px-1.5 py-0.5 rounded-md">
+                    <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-700 font-semibold bg-emerald-100 px-1.5 py-0.2 rounded-md">
                       <Check className="w-3 h-3 text-emerald-700" /> Terhubung
                     </span>
                   </div>
-                  <div className="text-[11px] text-slate-500">{googleUser.email}</div>
+                  <div className="text-[10px] text-slate-500 leading-tight">{googleUser.email}</div>
                 </div>
                 <button
                   type="button"
@@ -474,20 +484,20 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
                   title="Putuskan sambungan Google"
                   className="ml-2 text-slate-400 hover:text-rose-600 p-1 transition cursor-pointer"
                 >
-                  <LogOut className="w-4 h-4" />
+                  <LogOut className="w-3.5 h-3.5" />
                 </button>
               </div>
             ) : (
               <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                 <div className="flex items-center space-x-2">
-                  <span className="text-slate-600 font-medium">Belum terhubung ke Google:</span>
+                  <span className="text-slate-600 font-medium">Status Akun:</span>
                   <button
                     type="button"
                     onClick={handleGoogleSignIn}
                     disabled={isSigningIn}
-                    className="gsi-material-button inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs shadow-2xs transition cursor-pointer disabled:opacity-50"
+                    className="gsi-material-button inline-flex items-center gap-2 px-3 py-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs shadow-2xs transition cursor-pointer disabled:opacity-50"
                   >
-                    <svg className="w-4 h-4" viewBox="0 0 48 48">
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 48 48">
                       <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
                       <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
                       <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
@@ -498,7 +508,7 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
                 </div>
                 {typeof window !== 'undefined' && window.self !== window.top && (
                   <span className="text-[10px] text-slate-500 italic">
-                    (Jika popup langsung tertutup, buka aplikasi di tab baru)
+                    (Jika popup tertutup, buka di tab baru)
                   </span>
                 )}
               </div>
@@ -507,15 +517,16 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
 
           {/* Info Spreadsheet Aktif */}
           {currentSpreadsheet && (
-            <div className="flex items-center space-x-2 text-right">
+            <div className="flex items-center space-x-2 md:justify-end">
+              <span className="text-slate-500 text-[11px]">Spreadsheet Aktif:</span>
               <a
                 href={currentSpreadsheet.url}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-100 hover:bg-emerald-200 px-2.5 py-1 rounded-lg transition"
+                className="inline-flex items-center gap-1 font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-100 hover:bg-emerald-200 px-2.5 py-1 rounded-lg transition text-xs"
               >
                 <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span className="truncate max-w-[140px]">{currentSpreadsheet.title}</span>
+                <span className="truncate max-w-[200px]">{currentSpreadsheet.title}</span>
                 <ExternalLink className="w-3 h-3 ml-0.5" />
               </a>
             </div>
@@ -523,13 +534,13 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex border-b border-slate-200 bg-white px-6">
+        <div className="flex border-b border-slate-200 bg-white px-6 overflow-x-auto shrink-0">
           <button
             type="button"
             onClick={() => setActiveTab('create')}
-            className={`py-3 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition cursor-pointer ${
+            className={`py-3 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
               activeTab === 'create'
-                ? 'border-emerald-700 text-emerald-800'
+                ? 'border-emerald-700 text-emerald-800 bg-emerald-50/40'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
           >
@@ -540,9 +551,9 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('sync_existing')}
-            className={`py-3 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition cursor-pointer ${
+            className={`py-3 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
               activeTab === 'sync_existing'
-                ? 'border-emerald-700 text-emerald-800'
+                ? 'border-emerald-700 text-emerald-800 bg-emerald-50/40'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
           >
@@ -554,9 +565,9 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('preview')}
-              className={`py-3 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition cursor-pointer ${
+              className={`py-3 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
                 activeTab === 'preview'
-                  ? 'border-emerald-700 text-emerald-800'
+                  ? 'border-emerald-700 text-emerald-800 bg-emerald-50/40'
                   : 'border-transparent text-slate-500 hover:text-slate-700'
               }`}
             >
@@ -568,44 +579,39 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('export_csv')}
-            className={`py-3 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition cursor-pointer ${
+            className={`py-3 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
               activeTab === 'export_csv'
-                ? 'border-emerald-700 text-emerald-800'
+                ? 'border-emerald-700 text-emerald-800 bg-emerald-50/40'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
           >
             <Download className="w-4 h-4" />
             <span>Ekspor File CSV / Excel</span>
+            <span className="ml-1 px-1.5 py-0.2 bg-emerald-100 text-emerald-800 rounded text-[9px] font-extrabold uppercase">
+              Instan
+            </span>
           </button>
         </div>
 
-        {/* Special Diagnostic Helper for Firebase Unauthorized Domain */}
+        {/* Special Diagnostic Helper for Firebase Unauthorized Domain (Compact Horizontal Bar) */}
         {unauthorizedDomain && (
-          <div className="mx-6 mt-4 p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl text-xs text-amber-950 space-y-3 shadow-xs">
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-xl bg-amber-200/90 border border-amber-400 flex items-center justify-center shrink-0 text-amber-900 mt-0.5">
-                <ShieldAlert className="w-5 h-5" />
+          <div className="mx-6 mt-3 p-3 bg-amber-50 border-2 border-amber-300 rounded-xl text-xs text-amber-950 shrink-0">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <ShieldAlert className="w-5 h-5 text-amber-700 shrink-0" />
+                <div>
+                  <span className="font-extrabold text-amber-950 block">Perlu Menambahkan Domain di Firebase Console</span>
+                  <p className="text-[11px] text-amber-800">
+                    Otorisasikan domain <code className="bg-amber-100/90 px-1 py-0.5 rounded font-mono font-bold text-emerald-900">{unauthorizedDomain}</code> di Firebase Console agar login Google berhasil.
+                  </p>
+                </div>
               </div>
-              <div className="flex-1 space-y-1">
-                <h4 className="font-extrabold text-sm text-amber-950">
-                  Perlu Menambahkan Domain di Firebase Console
-                </h4>
-                <p className="text-amber-800 leading-relaxed text-xs">
-                  Firebase Authentication membatasi login akun Google hanya pada domain yang telah disetujui. Agar tombol <strong>Hubungkan Akun Google</strong> dapat berjalan di URL ini, domain aplikasi perlu didaftarkan sekali di Firebase Console.
-                </p>
-              </div>
-            </div>
 
-            <div className="bg-white p-3 rounded-xl border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-              <div className="flex items-center gap-2 font-mono text-[11px] text-slate-800 break-all bg-slate-100 px-2.5 py-1.5 rounded-lg border border-slate-200">
-                <span className="font-semibold text-slate-500 select-none">Domain Anda:</span>
-                <span className="font-bold text-emerald-900">{unauthorizedDomain}</span>
-              </div>
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => handleCopyDomain(unauthorizedDomain)}
-                  className="px-3 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-950 rounded-lg font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
+                  className="px-2.5 py-1 bg-amber-200 hover:bg-amber-300 text-amber-950 rounded-lg font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
                 >
                   {copiedDomain ? (
                     <>
@@ -623,303 +629,385 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
                   href="https://console.firebase.google.com/project/gen-lang-client-0959467835/authentication/settings"
                   target="_blank"
                   rel="noreferrer"
-                  className="px-3 py-1.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 transition"
+                  className="px-2.5 py-1 bg-emerald-800 hover:bg-emerald-900 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 transition"
                 >
-                  <span>Buka Firebase Console</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Buka Console</span>
+                  <ExternalLink className="w-3 h-3" />
                 </a>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUnauthorizedDomain(null);
+                    setActiveTab('export_csv');
+                  }}
+                  className="px-2.5 py-1 bg-white hover:bg-slate-50 border border-amber-300 text-slate-700 rounded-lg font-bold text-xs flex items-center gap-1 transition cursor-pointer"
+                  title="Gunakan ekspor CSV tanpa perlu setel Firebase"
+                >
+                  <span>Pakai CSV</span>
+                </button>
               </div>
-            </div>
-
-            <div className="text-[11px] text-amber-900 bg-amber-100/70 p-3 rounded-xl space-y-1.5">
-              <span className="font-bold block">3 Langkah Cepat Mengaktifkan:</span>
-              <ol className="list-decimal list-inside space-y-1 text-amber-900/90 pl-1">
-                <li>Klik tombol <strong>Buka Firebase Console</strong> di atas (langsung membuka tab <em>Authentication &gt; Settings</em>).</li>
-                <li>Gulir ke bawah ke bagian <strong>Authorized domains</strong>, klik <strong>Add domain</strong>, lalu tempelkan domain yang disalin di atas (atau masukkan <code>run.app</code>).</li>
-                <li>Klik <strong>Add</strong>. Setelah itu kembali ke sini dan klik kembali tombol <strong>Hubungkan Akun Google</strong>.</li>
-              </ol>
-            </div>
-
-            <div className="pt-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-t border-amber-200/80 text-[11px]">
-              <span className="text-amber-800">
-                Ingin langsung membuka data di Google Sheets tanpa harus menyetel Firebase?
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setUnauthorizedDomain(null);
-                  setActiveTab('export_csv');
-                }}
-                className="font-bold text-emerald-800 hover:text-emerald-950 underline flex items-center gap-1 cursor-pointer self-start sm:self-auto"
-              >
-                <span>Pakai Ekspor File Langsung (CSV / Excel)</span>
-                <Download className="w-3.5 h-3.5" />
-              </button>
             </div>
           </div>
         )}
 
         {/* Feedback Alert */}
         {successMessage && (
-          <div className="mx-6 mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-start gap-2">
+          <div className="mx-6 mt-3 p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-start gap-2 shrink-0">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
             <div className="flex-1 font-medium">{successMessage}</div>
           </div>
         )}
 
         {errorMessage && !unauthorizedDomain && (
-          <div className="mx-6 mt-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start gap-2">
+          <div className="mx-6 mt-3 p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start gap-2 shrink-0">
             <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
             <div className="flex-1 font-medium">{errorMessage}</div>
           </div>
         )}
 
-        {/* Content Body */}
-        <div className="p-6">
+        {/* Content Body: Wide, Multi-Column, Non-Scrolling on Desktop */}
+        <div className="p-5 sm:p-6 overflow-y-auto flex-1">
           {/* TAB 1: BUAT SPREADSHEET BARU */}
           {activeTab === 'create' && (
-            <form onSubmit={handleCreateNewSpreadsheet} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  Nama / Judul Dokumen Spreadsheet
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="Contoh: Manajemen Keuangan Masjid As Shomad 1446 H"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-600 outline-hidden font-medium text-xs"
-                />
-                <p className="text-[11px] text-slate-500 mt-1">
-                  File spreadsheet ini akan otomatis tersimpan di Google Drive akun Anda.
-                </p>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-2">
-                  Pilih Lembar Data (Sheets) yang Akan Dibuat:
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {[
-                    { id: 'Laporan_Kas', label: 'Buku Kas Keuangan', count: data.transactions.length, desc: 'Pemasukan, pengeluaran & saldo kas' },
-                    { id: 'Shohibul_Qurban', label: 'Peserta Shohibul Qurban', count: data.shohibulList.length, desc: 'Data peserta, paket sapi/kambing, status' },
-                    { id: 'Cicilan_Qurban', label: 'Tabungan / Cicilan Qurban', count: data.installments.length, desc: 'Rekam setoran dan bukti kuitansi' },
-                    { id: 'Stok_Hewan_Qurban', label: 'Stok & Harga Hewan Qurban', count: data.qurbanStocks.length, desc: 'Kuota slot hewan dan harga pasar' },
-                    { id: 'Infaq_Sedekah', label: 'Infaq, Sedekah & Donasi', count: data.infaqRecords.length, desc: 'Kotak Jumat, renovasi, yatim dhuafa' },
-                    { id: 'Babul_Khairat', label: 'Babul Khairat (Sosial Kematian)', count: (data.families || []).length, desc: 'Data anggota keluarga & iuran' }
-                  ].map((mod) => (
-                    <label 
-                      key={mod.id}
-                      className={`flex items-start gap-2.5 p-2.5 rounded-xl border transition cursor-pointer ${
-                        selectedModules[mod.id] 
-                          ? 'border-emerald-600 bg-emerald-50/60' 
-                          : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={!!selectedModules[mod.id]}
-                        onChange={(e) => setSelectedModules({ ...selectedModules, [mod.id]: e.target.checked })}
-                        className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                      />
-                      <div className="flex-1">
-                        <div className="flex justify-between items-center">
-                          <span className="font-bold text-slate-800">{mod.label}</span>
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">
-                            {mod.count} data
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-slate-500 mt-0.5">{mod.desc}</p>
-                      </div>
+            <form onSubmit={handleCreateNewSpreadsheet} className="grid grid-cols-1 lg:grid-cols-12 gap-5 text-xs">
+              {/* Sisi Kiri (5 Kolom): Detail Dokumen & Tindakan Utama */}
+              <div className="lg:col-span-5 flex flex-col justify-between space-y-4 bg-slate-50/70 p-4 rounded-2xl border border-slate-200">
+                <div className="space-y-3.5">
+                  <div>
+                    <label className="block font-bold text-slate-800 mb-1.5">
+                      Nama / Judul Dokumen Spreadsheet:
                     </label>
-                  ))}
+                    <input
+                      type="text"
+                      required
+                      value={newTitle}
+                      onChange={(e) => setNewTitle(e.target.value)}
+                      placeholder="Contoh: Manajemen Keuangan Masjid As Shomad 1446 H"
+                      className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-600 outline-hidden font-medium text-xs shadow-2xs"
+                    />
+                    <p className="text-[11px] text-slate-500 mt-1.5">
+                      Spreadsheet akan otomatis dibuat dan tersimpan di Google Drive akun Anda.
+                    </p>
+                  </div>
+
+                  <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-2 text-[11px] text-slate-600 shadow-2xs">
+                    <span className="font-bold text-slate-800 block text-xs flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                      Fitur Standarisasi Google Sheets:
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>Baris judul beku (Frozen Header) &amp; siap filter</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>Format angka Rupiah (Rp) &amp; tanggal Indonesia</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>Sinkron otomatis dengan data kas &amp; tabungan masjid</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={isProcessing}
+                    className="w-full py-3 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition shadow-sm cursor-pointer disabled:opacity-50"
+                  >
+                    {isProcessing ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>Membuat Dokumen di Drive...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        <span>Buat &amp; Ekspor ke Google Sheets</span>
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <span className="text-[11px] text-slate-500">
-                  Data diformat rapi dengan baris judul terkunci (frozen header) di Google Sheets.
-                </span>
+              {/* Sisi Kanan (7 Kolom): Pilihan 6 Modul Lembar Kerja */}
+              <div className="lg:col-span-7 flex flex-col justify-between space-y-3">
+                <div>
+                  <div className="flex items-center justify-between mb-2 pb-1 border-b border-slate-100">
+                    <div>
+                      <span className="font-bold text-slate-800 text-xs">Pilih Lembar Data (Sheets) yang Disertakan:</span>
+                      <p className="text-[11px] text-slate-500">Pilih lembar kerja yang ingin dimuat ke dalam spreadsheet.</p>
+                    </div>
+                    <div className="flex items-center gap-2 text-[11px] shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleSelectAll(true)}
+                        className="text-emerald-700 hover:text-emerald-900 font-bold hover:underline cursor-pointer"
+                      >
+                        Pilih Semua
+                      </button>
+                      <span className="text-slate-300">•</span>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleSelectAll(false)}
+                        className="text-slate-500 hover:text-slate-700 font-medium hover:underline cursor-pointer"
+                      >
+                        Kosongkan
+                      </button>
+                    </div>
+                  </div>
 
-                <button
-                  type="submit"
-                  disabled={isProcessing}
-                  className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition shadow-sm cursor-pointer disabled:opacity-50"
-                >
-                  {isProcessing ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Membuat Spreadsheet...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4" />
-                      <span>Buat & Ekspor ke Google Sheets</span>
-                    </>
-                  )}
-                </button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {[
+                      { id: 'Laporan_Kas', label: 'Buku Kas Keuangan', count: data.transactions.length, desc: 'Pemasukan, pengeluaran & saldo kas' },
+                      { id: 'Shohibul_Qurban', label: 'Peserta Shohibul Qurban', count: data.shohibulList.length, desc: 'Data peserta, paket hewan & status' },
+                      { id: 'Cicilan_Qurban', label: 'Tabungan / Cicilan Qurban', count: data.installments.length, desc: 'Rekam setoran cicilan & kuitansi' },
+                      { id: 'Stok_Hewan_Qurban', label: 'Stok & Harga Hewan Qurban', count: data.qurbanStocks.length, desc: 'Kuota slot hewan dan harga pasar' },
+                      { id: 'Infaq_Sedekah', label: 'Infaq, Sedekah & Donasi', count: data.infaqRecords.length, desc: 'Kotak Jumat, renovasi, yatim dhuafa' },
+                      { id: 'Babul_Khairat', label: 'Babul Khairat (Sosial)', count: (data.families || []).length, desc: 'Data anggota keluarga & iuran bulanan' }
+                    ].map((mod) => (
+                      <label 
+                        key={mod.id}
+                        className={`flex items-start gap-2.5 p-2.5 rounded-xl border transition cursor-pointer ${
+                          selectedModules[mod.id] 
+                            ? 'border-emerald-600 bg-emerald-50/70 shadow-2xs' 
+                            : 'border-slate-200 bg-slate-50/40 hover:bg-slate-50'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={!!selectedModules[mod.id]}
+                          onChange={(e) => setSelectedModules({ ...selectedModules, [mod.id]: e.target.checked })}
+                          className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-center gap-1">
+                            <span className="font-bold text-slate-800 truncate">{mod.label}</span>
+                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-slate-200/80 text-slate-700 shrink-0">
+                              {mod.count} data
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-500 mt-0.5 truncate">{mod.desc}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="p-2.5 bg-emerald-50/70 rounded-xl border border-emerald-200/80 text-[11px] text-emerald-800 flex items-center justify-between">
+                  <span className="font-semibold">{Object.values(selectedModules).filter(Boolean).length} dari 6 lembar kerja terpilih</span>
+                  <span className="text-emerald-900 font-medium">Format tab otomatis rapi di Google Sheets</span>
+                </div>
               </div>
             </form>
           )}
 
           {/* TAB 2: SINKRONISASI KE SPREADSHEET YANG SUDAH ADA */}
           {activeTab === 'sync_existing' && (
-            <form onSubmit={promptSyncToExisting} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  Spreadsheet ID atau URL Dokumen Google Sheets
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    required
-                    value={existingInput}
-                    onChange={(e) => setExistingInput(e.target.value)}
-                    placeholder="Tempel URL (https://docs.google.com/spreadsheets/d/...) atau Spreadsheet ID"
-                    className="flex-1 px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-600 outline-hidden font-mono text-xs"
-                  />
+            <form onSubmit={promptSyncToExisting} className="grid grid-cols-1 lg:grid-cols-12 gap-5 text-xs">
+              {/* Sisi Kiri (6 Kolom): Target Spreadsheet & Action */}
+              <div className="lg:col-span-6 flex flex-col justify-between space-y-4 bg-slate-50/70 p-4 rounded-2xl border border-slate-200">
+                <div className="space-y-3">
+                  <div>
+                    <label className="block font-bold text-slate-800 mb-1.5">
+                      Spreadsheet ID atau URL Dokumen Google Sheets:
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        required
+                        value={existingInput}
+                        onChange={(e) => setExistingInput(e.target.value)}
+                        placeholder="Tempel URL dokumen atau Spreadsheet ID"
+                        className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-600 outline-hidden font-mono text-xs shadow-2xs"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleInspectSpreadsheet(existingInput)}
+                        className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-bold border border-slate-300 transition cursor-pointer shrink-0"
+                      >
+                        Periksa
+                      </button>
+                    </div>
+                    {currentSpreadsheet && existingInput !== currentSpreadsheet.id && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setExistingInput(currentSpreadsheet.id);
+                          handleInspectSpreadsheet(currentSpreadsheet.id);
+                        }}
+                        className="text-[11px] text-emerald-700 hover:underline mt-1 font-semibold flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>Gunakan spreadsheet aktif:</span>
+                        <span className="font-bold truncate max-w-[200px]">{currentSpreadsheet.title}</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Inspected info */}
+                  {inspectedDetails ? (
+                    <div className="p-3.5 bg-emerald-50/90 border border-emerald-300 rounded-xl space-y-2 shadow-2xs">
+                      <div className="flex justify-between items-center font-bold text-emerald-950">
+                        <span className="truncate">{inspectedDetails.title}</span>
+                        <a 
+                          href={inspectedDetails.url} 
+                          target="_blank" 
+                          rel="noreferrer" 
+                          className="text-emerald-700 hover:underline flex items-center gap-1 text-[11px] shrink-0"
+                        >
+                          <span>Buka File</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                      <div className="text-[11px] text-emerald-800">
+                        <span className="font-semibold">Lembar terdeteksi: </span>
+                        {inspectedDetails.sheets.map((s) => s.title).join(', ') || 'Belum ada'}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-white rounded-xl border border-slate-200 text-[11px] text-slate-500">
+                      Masukkan URL Google Sheets Anda lalu klik <strong>Periksa</strong> untuk melihat lembar kerja yang tersedia sebelum menyinkronkan.
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-2">
                   <button
-                    type="button"
-                    onClick={() => handleInspectSpreadsheet(existingInput)}
-                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold border border-slate-300 transition cursor-pointer"
+                    type="submit"
+                    disabled={isProcessing}
+                    className="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition shadow-sm cursor-pointer disabled:opacity-50"
                   >
-                    Periksa
+                    {isProcessing ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>Menyinkronkan Data...</span>
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-4 h-4" />
+                        <span>Mulai Sinkronisasi Data ke Google Sheets</span>
+                      </>
+                    )}
                   </button>
                 </div>
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Aplikasi akan memperbarui lembar kerja terpilih sesuai data terbaru.
-                </p>
               </div>
 
-              {/* Daftar Spreadsheet Terdeteksi dari Drive Akun Pengguna */}
-              {hasToken && (
-                <div>
-                  <div className="flex justify-between items-center mb-1.5">
-                    <span className="font-bold text-slate-700 text-[11px] flex items-center gap-1">
-                      <FolderOpen className="w-3.5 h-3.5 text-emerald-700" />
-                      <span>Pilih dari Google Drive Anda:</span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={loadDriveList}
-                      disabled={isLoadingDriveList}
-                      className="text-[11px] text-emerald-700 hover:underline flex items-center gap-1 cursor-pointer"
-                    >
-                      <RefreshCw className={`w-3 h-3 ${isLoadingDriveList ? 'animate-spin' : ''}`} />
-                      <span>Segarkan Daftar</span>
-                    </button>
-                  </div>
-
-                  {isLoadingDriveList ? (
-                    <div className="p-3 text-center text-slate-400 bg-slate-50 rounded-xl border border-slate-200">
-                      Memuat daftar spreadsheet dari Google Drive...
+              {/* Sisi Kanan (6 Kolom): Google Drive Picker + Pilihan Lembar */}
+              <div className="lg:col-span-6 flex flex-col justify-between space-y-3">
+                {/* Daftar Spreadsheet Drive Akun */}
+                {hasToken && (
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-slate-700 text-[11px] flex items-center gap-1">
+                        <FolderOpen className="w-3.5 h-3.5 text-emerald-700" />
+                        <span>Pilih dari Google Drive Anda:</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={loadDriveList}
+                        disabled={isLoadingDriveList}
+                        className="text-[11px] text-emerald-700 hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <RefreshCw className={`w-3 h-3 ${isLoadingDriveList ? 'animate-spin' : ''}`} />
+                        <span>Segarkan Drive</span>
+                      </button>
                     </div>
-                  ) : driveSpreadsheets.length > 0 ? (
-                    <div className="max-h-36 overflow-y-auto space-y-1.5 border border-slate-200 rounded-xl p-2 bg-slate-50">
-                      {driveSpreadsheets.map((ss) => (
-                        <div
-                          key={ss.id}
-                          onClick={() => {
-                            setExistingInput(ss.id);
-                            handleInspectSpreadsheet(ss.id);
-                          }}
-                          className={`p-2 rounded-lg text-left transition cursor-pointer flex justify-between items-center ${
-                            existingInput === ss.id 
-                              ? 'bg-emerald-100 border border-emerald-300 text-emerald-900 font-bold' 
-                              : 'bg-white hover:bg-emerald-50 border border-slate-200/80 text-slate-700'
-                          }`}
-                        >
-                          <div className="truncate pr-2">
-                            <div className="truncate font-semibold">{ss.name}</div>
-                            <div className="text-[10px] text-slate-400 font-mono">{ss.id.slice(0, 16)}...</div>
+
+                    {isLoadingDriveList ? (
+                      <div className="p-2.5 text-center text-slate-400 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                        Memuat daftar file dari Google Drive...
+                      </div>
+                    ) : driveSpreadsheets.length > 0 ? (
+                      <div className="max-h-32 overflow-y-auto space-y-1 border border-slate-200 rounded-xl p-1.5 bg-slate-50">
+                        {driveSpreadsheets.map((ss) => (
+                          <div
+                            key={ss.id}
+                            onClick={() => {
+                              setExistingInput(ss.id);
+                              handleInspectSpreadsheet(ss.id);
+                            }}
+                            className={`px-2.5 py-1.5 rounded-lg text-left transition cursor-pointer flex justify-between items-center text-xs ${
+                              existingInput === ss.id 
+                                ? 'bg-emerald-100 border border-emerald-300 text-emerald-900 font-bold' 
+                                : 'bg-white hover:bg-emerald-50 border border-slate-200/80 text-slate-700'
+                            }`}
+                          >
+                            <div className="truncate pr-2">
+                              <div className="truncate font-semibold">{ss.name}</div>
+                            </div>
+                            {existingInput === ss.id && (
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                            )}
                           </div>
-                          {existingInput === ss.id && (
-                            <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="p-2.5 text-center text-[11px] text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                      Belum ada spreadsheet terdeteksi. Buat spreadsheet baru pada tab pertama.
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Inspected info */}
-              {inspectedDetails && (
-                <div className="p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl space-y-1.5">
-                  <div className="flex justify-between items-center font-bold text-emerald-950">
-                    <span>{inspectedDetails.title}</span>
-                    <a 
-                      href={inspectedDetails.url} 
-                      target="_blank" 
-                      rel="noreferrer" 
-                      className="text-emerald-700 hover:underline flex items-center gap-1 text-[11px]"
-                    >
-                      <span>Buka File</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-2 text-center text-[11px] text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                        Belum ada spreadsheet terdeteksi di Drive Anda.
+                      </div>
+                    )}
                   </div>
-                  <div className="text-[11px] text-emerald-800">
-                    Lembar yang ada: {inspectedDetails.sheets.map((s) => s.title).join(', ') || '-'}
-                  </div>
-                </div>
-              )}
+                )}
 
-              <div>
-                <label className="block font-bold text-slate-700 mb-1.5">
-                  Lembar yang Ingin Disinkronkan:
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {[
-                    { id: 'Laporan_Kas', label: 'Laporan_Kas' },
-                    { id: 'Shohibul_Qurban', label: 'Shohibul_Qurban' },
-                    { id: 'Cicilan_Qurban', label: 'Cicilan_Qurban' },
-                    { id: 'Stok_Hewan_Qurban', label: 'Stok_Hewan_Qurban' },
-                    { id: 'Infaq_Sedekah', label: 'Infaq_Sedekah' },
-                    { id: 'Babul_Khairat', label: 'Babul_Khairat' }
-                  ].map((mod) => (
-                    <label 
-                      key={mod.id}
-                      className={`p-2 rounded-lg border text-center font-medium cursor-pointer transition ${
-                        selectedModules[mod.id]
-                          ? 'bg-emerald-100 border-emerald-600 text-emerald-900 font-bold'
-                          : 'bg-slate-50 border-slate-200 text-slate-600'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={!!selectedModules[mod.id]}
-                        onChange={(e) => setSelectedModules({ ...selectedModules, [mod.id]: e.target.checked })}
-                        className="sr-only"
-                      />
-                      <span>{mod.label}</span>
+                {/* Lembar yang Ingin Disinkronkan */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="font-bold text-slate-800 text-xs">
+                      Lembar yang Ingin Diperbarui:
                     </label>
-                  ))}
-                </div>
-              </div>
+                    <div className="flex items-center gap-2 text-[11px]">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleSelectAll(true)}
+                        className="text-emerald-700 hover:text-emerald-900 font-bold hover:underline cursor-pointer"
+                      >
+                        Pilih Semua
+                      </button>
+                      <span className="text-slate-300">•</span>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleSelectAll(false)}
+                        className="text-slate-500 hover:text-slate-700 font-medium hover:underline cursor-pointer"
+                      >
+                        Kosongkan
+                      </button>
+                    </div>
+                  </div>
 
-              <div className="pt-4 border-t border-slate-200 flex justify-end gap-2">
-                <button
-                  type="submit"
-                  disabled={isProcessing}
-                  className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold flex items-center gap-2 transition shadow-sm cursor-pointer disabled:opacity-50"
-                >
-                  {isProcessing ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Menyinkronkan...</span>
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="w-4 h-4" />
-                      <span>Mulai Sinkronisasi Data</span>
-                    </>
-                  )}
-                </button>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {[
+                      { id: 'Laporan_Kas', label: 'Buku Kas Keuangan' },
+                      { id: 'Shohibul_Qurban', label: 'Shohibul Qurban' },
+                      { id: 'Cicilan_Qurban', label: 'Tabungan Cicilan' },
+                      { id: 'Stok_Hewan_Qurban', label: 'Stok & Harga Hewan' },
+                      { id: 'Infaq_Sedekah', label: 'Infaq & Donasi' },
+                      { id: 'Babul_Khairat', label: 'Babul Khairat' }
+                    ].map((mod) => (
+                      <label 
+                        key={mod.id}
+                        className={`p-2 rounded-lg border text-center font-medium cursor-pointer transition text-xs ${
+                          selectedModules[mod.id]
+                            ? 'bg-emerald-100 border-emerald-600 text-emerald-900 font-bold shadow-2xs'
+                            : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={!!selectedModules[mod.id]}
+                          onChange={(e) => setSelectedModules({ ...selectedModules, [mod.id]: e.target.checked })}
+                          className="sr-only"
+                        />
+                        <span className="truncate block">{mod.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-900">
+                  <span className="font-bold block">Pemberitahuan:</span>
+                  Data pada lembar kerja yang dipilih akan diperbarui mengikuti data terbaru aplikasi.
+                </div>
               </div>
             </form>
           )}
@@ -927,17 +1015,18 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
           {/* TAB 3: TINJAU DATA SHEETS */}
           {activeTab === 'preview' && currentSpreadsheet && (
             <div className="space-y-4 text-xs">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 border-b border-slate-200">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-200">
                 <div>
-                  <h4 className="font-bold text-slate-800">Pratinjau Lembar Kerja dari Google Sheets</h4>
-                  <p className="text-[11px] text-slate-500">Membaca langsung baris data yang tersimpan di spreadsheet aktif.</p>
+                  <h4 className="font-bold text-slate-800 text-sm">Pratinjau Data Langsung dari Google Sheets</h4>
+                  <p className="text-[11px] text-slate-500">Membaca baris data real-time yang tersimpan di spreadsheet aktif Anda.</p>
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <span className="text-slate-600 text-xs font-medium">Pilih Lembar:</span>
                   <select
                     value={previewSheetName}
                     onChange={(e) => setPreviewSheetName(e.target.value)}
-                    className="px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-bold text-slate-800 bg-white"
+                    className="px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-bold text-slate-800 bg-white"
                   >
                     <option value="Laporan_Kas">Laporan_Kas</option>
                     <option value="Shohibul_Qurban">Shohibul_Qurban</option>
@@ -951,22 +1040,33 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
                     type="button"
                     onClick={handleLoadPreview}
                     disabled={isLoadingPreview}
-                    className="p-1.5 border border-slate-300 rounded-lg hover:bg-slate-100 transition cursor-pointer"
-                    title="Muat Ulang Data"
+                    className="p-2 border border-slate-300 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+                    title="Muat Ulang Data dari Google Sheets"
                   >
                     <RefreshCw className={`w-4 h-4 text-slate-600 ${isLoadingPreview ? 'animate-spin' : ''}`} />
                   </button>
+
+                  <a
+                    href={currentSpreadsheet.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 rounded-lg font-bold flex items-center gap-1.5 transition text-xs"
+                  >
+                    <span>Buka Sheets</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
                 </div>
               </div>
 
               {isLoadingPreview ? (
-                <div className="py-12 text-center text-slate-400 bg-slate-50 rounded-xl">
-                  Mengambil baris dari Google Sheets API...
+                <div className="py-16 text-center text-slate-400 bg-slate-50 rounded-xl flex flex-col items-center justify-center gap-2">
+                  <RefreshCw className="w-6 h-6 text-emerald-600 animate-spin" />
+                  <span>Mengambil data dari Google Sheets API...</span>
                 </div>
               ) : previewData && previewData.headers.length > 0 ? (
-                <div className="overflow-x-auto border border-slate-200 rounded-xl max-h-60">
+                <div className="overflow-x-auto border border-slate-200 rounded-xl max-h-[50vh] shadow-2xs">
                   <table className="min-w-full divide-y divide-slate-200 text-[11px]">
-                    <thead className="bg-emerald-800 text-white sticky top-0">
+                    <thead className="bg-emerald-800 text-white sticky top-0 z-10">
                       <tr>
                         {previewData.headers.map((h, i) => (
                           <th key={i} className="px-3 py-2 text-left font-bold whitespace-nowrap">
@@ -976,7 +1076,7 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 bg-white">
-                      {previewData.rows.slice(0, 15).map((row, rIdx) => (
+                      {previewData.rows.slice(0, 25).map((row, rIdx) => (
                         <tr key={rIdx} className="hover:bg-slate-50">
                           {row.map((val, cIdx) => (
                             <td key={cIdx} className="px-3 py-1.5 whitespace-nowrap text-slate-700">
@@ -989,91 +1089,109 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
                   </table>
                 </div>
               ) : (
-                <div className="py-8 text-center text-slate-400 bg-slate-50 rounded-xl">
-                  Belum ada data pada lembar "{previewSheetName}" atau lembar belum dibuat.
+                <div className="py-12 text-center text-slate-400 bg-slate-50 rounded-xl">
+                  Belum ada data pada lembar "{previewSheetName}" atau lembar belum dibuat di Google Sheets.
                 </div>
               )}
 
-              <div className="flex justify-between items-center pt-2">
-                <span className="text-[11px] text-slate-500">
-                  Terakhir disinkronkan: {lastSyncTime || 'Belum pernah'}
-                </span>
-                <a
-                  href={currentSpreadsheet.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 font-bold text-emerald-700 hover:text-emerald-900"
-                >
-                  <span>Buka di Google Sheets Lengkap</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
+              <div className="flex justify-between items-center pt-2 text-[11px] text-slate-500">
+                <span>Terakhir disinkronkan: {lastSyncTime || 'Belum pernah'}</span>
+                <span>Menampilkan pratinjau hingga 25 baris pertama</span>
               </div>
             </div>
           )}
 
-          {/* TAB 4: EKSPOR FILE CSV / EXCEL LANGSUNG (TANPA PERLU LOGIN / OTORISASI DOMAIN) */}
+          {/* TAB 4: EKSPOR FILE CSV / EXCEL LANGSUNG (WIDE 3-COLUMN GRID) */}
           {activeTab === 'export_csv' && (
-            <div className="space-y-5 text-xs">
-              <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <div className="font-extrabold text-sm text-emerald-950 flex items-center gap-2">
-                    <Download className="w-4 h-4 text-emerald-700" />
-                    <span>Ekspor File Langsung (CSV &amp; Excel)</span>
+            <div className="space-y-4 text-xs">
+              <div className="bg-emerald-50 border border-emerald-200 p-3.5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-200/80 flex items-center justify-center text-emerald-800 shrink-0">
+                    <Download className="w-4 h-4" />
                   </div>
-                  <p className="text-emerald-800 text-xs mt-1">
-                    Unduh file data masjid secara instan tanpa perlu akun Google atau otorisasi domain Firebase. File CSV ini sudah diformat dengan UTF-8 BOM agar angka, mata uang, dan teks Indonesia terbaca rapi di <strong>Google Sheets</strong> dan <strong>Microsoft Excel</strong>.
-                  </p>
+                  <div>
+                    <div className="font-extrabold text-sm text-emerald-950">
+                      Ekspor File Langsung (CSV &amp; Excel) Tanpa Login
+                    </div>
+                    <p className="text-emerald-800 text-xs">
+                      Unduh file data masjid instan berformat UTF-8 BOM. Angka, teks, dan format Rupiah langsung rapi di Google Sheets &amp; Excel.
+                    </p>
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleDownloadAllSelectedCSV}
-                  className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-sm flex items-center gap-2 shrink-0 cursor-pointer self-stretch sm:self-auto justify-center"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>Unduh Semua ({Object.keys(selectedModules).filter(k => selectedModules[k]).length} Berkas)</span>
-                </button>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleDownloadAllSelectedCSV}
+                    className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-sm flex items-center gap-2 cursor-pointer"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Unduh Semua ({Object.keys(selectedModules).filter(k => selectedModules[k]).length} Berkas)</span>
+                  </button>
+                </div>
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-2">
-                  Pilih Lembar Data yang Ingin Diunduh:
-                </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="font-bold text-slate-800 text-xs">
+                    Pilih Lembar Data untuk Diunduh:
+                  </label>
+                  <div className="flex items-center gap-2 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSelectAll(true)}
+                      className="text-emerald-700 hover:text-emerald-900 font-bold hover:underline cursor-pointer"
+                    >
+                      Pilih Semua
+                    </button>
+                    <span className="text-slate-300">•</span>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSelectAll(false)}
+                      className="text-slate-500 hover:text-slate-700 font-medium hover:underline cursor-pointer"
+                    >
+                      Kosongkan
+                    </button>
+                  </div>
+                </div>
+
+                {/* Grid 3 Kolom di Layar Wide: Semua 6 modul terlihat tanpa scroll */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {[
                     { id: 'Laporan_Kas', title: 'Buku Kas Keuangan', count: data.transactions.length, desc: 'Pemasukan, pengeluaran & saldo kas masjid' },
-                    { id: 'Shohibul_Qurban', title: 'Peserta Shohibul Qurban', count: data.shohibulList.length, desc: 'Data shohibul, jenis hewan, status bayar' },
-                    { id: 'Cicilan_Qurban', title: 'Setoran & Cicilan Qurban', count: data.installments.length, desc: 'Riwayat pembayaran, kuitansi, tanggal' },
+                    { id: 'Shohibul_Qurban', title: 'Shohibul Qurban', count: data.shohibulList.length, desc: 'Peserta, jenis hewan, status bayar' },
+                    { id: 'Cicilan_Qurban', title: 'Tabungan Cicilan', count: data.installments.length, desc: 'Riwayat pembayaran & nomor kuitansi' },
                     { id: 'Stok_Hewan_Qurban', title: 'Stok & Harga Hewan', count: data.qurbanStocks.length, desc: 'Kuota hewan qurban dan harga pasar' },
-                    { id: 'Infaq_Sedekah', title: 'Infaq, Sedekah & Donatur', count: data.infaqRecords.length, desc: 'Infaq Jumat, sedekah subuh, renovasi' },
-                    { id: 'Babul_Khairat', title: 'Babul Khairat (Sosial)', count: (data.families || []).length, desc: 'Anggota keluarga, iuran bulanan & klaim' }
+                    { id: 'Infaq_Sedekah', title: 'Infaq & Donatur', count: data.infaqRecords.length, desc: 'Infaq Jumat, sedekah subuh, renovasi' },
+                    { id: 'Babul_Khairat', title: 'Babul Khairat (Sosial)', count: (data.families || []).length, desc: 'Data keluarga, iuran bulanan & santunan' }
                   ].map((item) => (
                     <div 
                       key={item.id}
-                      className="p-3 bg-white border border-slate-200 rounded-xl hover:border-emerald-300 transition flex items-center justify-between gap-3"
+                      className="p-3 bg-white border border-slate-200 rounded-xl hover:border-emerald-300 hover:shadow-2xs transition flex items-center justify-between gap-2.5"
                     >
-                      <div className="flex items-start gap-2.5">
+                      <div className="flex items-start gap-2 min-w-0">
                         <input
                           type="checkbox"
                           id={`csv-check-${item.id}`}
                           checked={!!selectedModules[item.id]}
                           onChange={(e) => setSelectedModules({ ...selectedModules, [item.id]: e.target.checked })}
-                          className="mt-1 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                          className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                         />
-                        <label htmlFor={`csv-check-${item.id}`} className="cursor-pointer">
+                        <label htmlFor={`csv-check-${item.id}`} className="cursor-pointer min-w-0">
                           <div className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
-                            <span>{item.title}</span>
-                            <span className="px-1.5 py-0.2 bg-slate-100 text-slate-600 rounded text-[10px] font-semibold">
-                              {item.count} data
+                            <span className="truncate">{item.title}</span>
+                            <span className="px-1.5 py-0.2 bg-slate-100 text-slate-600 rounded text-[10px] font-semibold shrink-0">
+                              {item.count}
                             </span>
                           </div>
-                          <p className="text-[11px] text-slate-500 mt-0.5">{item.desc}</p>
+                          <p className="text-[10px] text-slate-500 mt-0.5 truncate">{item.desc}</p>
                         </label>
                       </div>
 
                       <button
                         type="button"
                         onClick={() => handleDownloadCSV(item.id)}
-                        className="px-2.5 py-1.5 bg-slate-100 hover:bg-emerald-100 text-slate-700 hover:text-emerald-900 border border-slate-200 rounded-lg text-xs font-bold transition flex items-center gap-1 shrink-0 cursor-pointer"
+                        className="px-2.5 py-1 bg-slate-100 hover:bg-emerald-100 text-slate-700 hover:text-emerald-900 border border-slate-200 rounded-lg text-xs font-bold transition flex items-center gap-1 shrink-0 cursor-pointer"
                         title={`Unduh ${item.title} sebagai CSV`}
                       >
                         <Download className="w-3.5 h-3.5" />
@@ -1084,24 +1202,33 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
                 </div>
               </div>
 
-              {/* Panduan Buka di Google Sheets */}
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
-                <div className="font-bold text-slate-800 flex items-center gap-1.5">
+              {/* Panduan Buka di Google Sheets: Horizontal 3 Kolom */}
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-2">
+                <div className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
                   <FileSpreadsheet className="w-4 h-4 text-emerald-700" />
-                  <span>Cara Membuka File CSV di Google Sheets (Hanya 3 Langkah):</span>
+                  <span>Cara Membuka File CSV di Google Sheets (3 Langkah Cepat):</span>
                 </div>
-                <ol className="list-decimal list-inside space-y-1 text-slate-600 text-[11px] pl-1">
-                  <li>Buka situs <a href="https://sheets.google.com" target="_blank" rel="noreferrer" className="text-emerald-700 font-bold underline">Google Sheets</a> di browser Anda.</li>
-                  <li>Klik menu <strong>File</strong> &gt; <strong>Buka (Open)</strong> &gt; pilih tab <strong>Upload</strong>.</li>
-                  <li>Seret atau pilih file <code>.csv</code> yang baru saja diunduh. Google Sheets akan otomatis menata semua kolom, nama, dan rupiah secara rapi!</li>
-                </ol>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 text-[11px] text-slate-600">
+                  <div className="bg-white p-2.5 rounded-xl border border-slate-200/80">
+                    <span className="font-bold text-emerald-800 block mb-0.5">1. Buka Google Sheets</span>
+                    Buka situs <a href="https://sheets.google.com" target="_blank" rel="noreferrer" className="text-emerald-700 font-bold underline">sheets.google.com</a> di browser Anda.
+                  </div>
+                  <div className="bg-white p-2.5 rounded-xl border border-slate-200/80">
+                    <span className="font-bold text-emerald-800 block mb-0.5">2. Buka Menu Upload</span>
+                    Klik <strong>File</strong> &gt; <strong>Buka (Open)</strong> &gt; pilih tab <strong>Upload</strong>.
+                  </div>
+                  <div className="bg-white p-2.5 rounded-xl border border-slate-200/80">
+                    <span className="font-bold text-emerald-800 block mb-0.5">3. Pilih File CSV</span>
+                    Pilih file CSV yang baru diunduh. Kolom, nama &amp; rupiah otomatis rapi.
+                  </div>
+                </div>
               </div>
             </div>
           )}
         </div>
 
         {/* Footer Info */}
-        <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500">
+        <div className="bg-slate-50 px-6 py-2.5 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500 shrink-0">
           <div className="flex items-center gap-1.5">
             <Database className="w-3.5 h-3.5 text-emerald-700" />
             <span>Format Data: Otomatis disinkronkan langsung via Google Sheets API v4</span>
@@ -1109,7 +1236,7 @@ export const GoogleSheetsModal: React.FC<GoogleSheetsModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="font-bold text-slate-600 hover:text-slate-900 cursor-pointer"
+            className="px-3 py-1 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg font-bold text-slate-700 cursor-pointer"
           >
             Tutup
           </button>
